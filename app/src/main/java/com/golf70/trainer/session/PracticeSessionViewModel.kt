@@ -22,7 +22,8 @@ data class SessionUiState(
     val completed: Boolean = false,
     val completedDrills: Set<Int> = emptySet(),
     val feedbackMessage: String? = null,
-    val sessionSaved: Boolean = false
+    val sessionSaved: Boolean = false,
+    val savedDrillIds: List<Long> = emptyList()
 ) {
     val currentDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex)
     val nextDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex + 1)
@@ -63,9 +64,20 @@ class PracticeSessionViewModel(
 
     fun completeCurrentDrill() {
         val current = _uiState.value
+        if (!current.sessionSaved || current.sessionId == null) {
+            _uiState.value = current.copy(feedbackMessage = "Complete the session first to save drills")
+            return
+        }
+
+        val drillId = current.savedDrillIds.getOrNull(current.currentDrillIndex)
+        if (drillId == null) {
+            _uiState.value = current.copy(feedbackMessage = "Unable to find saved drill for this index")
+            return
+        }
+
         viewModelScope.launch {
             repository.saveDrillResult(
-                drillId = current.currentDrillIndex + 1L,
+                drillId = drillId,
                 attempts = current.attempts,
                 successes = current.successes,
                 direction = current.direction,
@@ -113,9 +125,11 @@ class PracticeSessionViewModel(
         val definition = SeedSessions.weeklyPlan.first()
         viewModelScope.launch {
             val sessionId = repository.saveSession(definition)
+            val drillIds = repository.getDrillIdsForSession(sessionId)
             _uiState.value = _uiState.value.copy(
                 sessionId = sessionId,
                 sessionSaved = true,
+                savedDrillIds = drillIds,
                 feedbackMessage = "Session complete and saved"
             )
         }
