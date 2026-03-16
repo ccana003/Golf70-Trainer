@@ -59,6 +59,10 @@ class GolfRepository(
         return sessionId
     }
 
+    suspend fun getDrillIdsForSession(sessionId: Long): List<Long> {
+        return db.practiceSessionDao().getDrillsForSession(sessionId).map { it.id }
+    }
+
     suspend fun saveDrillResult(
         drillId: Long,
         attempts: Int,
