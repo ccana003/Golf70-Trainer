@@ -13,7 +13,7 @@ object GolfDatabaseProvider {
                 context.applicationContext,
                 GolfDatabase::class.java,
                 "golf70.db"
-            ).build().also { db = it }
+            ).fallbackToDestructiveMigration().build().also { db = it }
         }
     }
 }

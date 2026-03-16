@@ -3,6 +3,8 @@ package com.golf70.trainer.ui.navigation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.golf70.trainer.data.local.PracticeSessionWithDrills
+import com.golf70.trainer.data.local.RoundWithHoles
 import com.golf70.trainer.domain.DashboardStats
 import com.golf70.trainer.repository.GolfRepository
 import kotlinx.coroutines.flow.SharingStarted
@@ -16,6 +18,18 @@ class MainViewModel(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DashboardStats(0f, 0f, 0f, 0f)
+    )
+
+    val sessions: StateFlow<List<PracticeSessionWithDrills>> = repository.sessions.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val rounds: StateFlow<List<RoundWithHoles>> = repository.rounds.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
     )
 
     companion object {

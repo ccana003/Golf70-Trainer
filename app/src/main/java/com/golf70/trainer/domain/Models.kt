@@ -19,6 +19,7 @@ data class SessionDefinition(
 
 data class HoleInput(
     val holeNumber: Int,
+    val par: Int,
     val score: Int,
     val fairwayHit: Boolean,
     val gir: Boolean,

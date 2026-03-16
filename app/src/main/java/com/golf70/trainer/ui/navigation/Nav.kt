@@ -1,22 +1,21 @@
 package com.golf70.trainer.ui.navigation
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -37,7 +36,9 @@ enum class Golf70Destination(val route: String, val label: String) {
 @Composable
 fun Golf70NavHost(vm: MainViewModel) {
     val navController = rememberNavController()
-    val dashboard = vm.dashboardStats.collectAsState()
+    val dashboard by vm.dashboardStats.collectAsState()
+    val sessions by vm.sessions.collectAsState()
+    val rounds by vm.rounds.collectAsState()
     val items = Golf70Destination.entries
     Scaffold(
         bottomBar = {
@@ -71,16 +72,16 @@ fun Golf70NavHost(vm: MainViewModel) {
             modifier = Modifier.padding(padding)
         ) {
             composable(Golf70Destination.Dashboard.route) {
-                DashboardScreen(stats = dashboard)
+                DashboardScreen(stats = dashboard, sessions = sessions, rounds = rounds)
             }
             composable(Golf70Destination.Session.route) {
                 PracticeSessionScreen()
             }
             composable(Golf70Destination.Round.route) {
-                RoundTrackerScreen()
+                RoundTrackerScreen(onRoundSaved = { navController.navigate(Golf70Destination.Dashboard.route) })
             }
             composable(Golf70Destination.Progress.route) {
-                ProgressScreen(stats = dashboard.value)
+                ProgressScreen(stats = dashboard)
             }
         }
     }

@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         HoleStatEntity::class,
         GoalEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class GolfDatabase : RoomDatabase() {

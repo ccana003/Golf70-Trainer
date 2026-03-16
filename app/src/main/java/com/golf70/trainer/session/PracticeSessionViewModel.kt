@@ -19,7 +19,9 @@ data class SessionUiState(
     val attempts: Int = 0,
     val successes: Int = 0,
     val direction: String? = null,
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    val completedDrills: Set<Int> = emptySet(),
+    val feedbackMessage: String? = null
 ) {
     val currentDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex)
     val nextDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex + 1)
@@ -50,12 +52,17 @@ class PracticeSessionViewModel(
         _uiState.value = current.copy(
             attempts = current.attempts + 1,
             successes = current.successes + if (success == true) 1 else 0,
-            direction = direction ?: current.direction
+            direction = direction ?: current.direction,
+            feedbackMessage = when {
+                direction != null -> "Logged direction: ${direction.replaceFirstChar { it.uppercase() }}"
+                success == true -> "Logged result: Made"
+                success == false -> "Logged result: Missed"
+                else -> "Logged"
+            }
         )
     }
 
     fun completeCurrentDrill() {
-        // Persisting by drill id is simplified in this starter implementation.
         val current = _uiState.value
         viewModelScope.launch {
             repository.saveDrillResult(
@@ -65,23 +72,39 @@ class PracticeSessionViewModel(
                 direction = current.direction,
                 distance = null
             )
+            _uiState.value = _uiState.value.copy(
+                completedDrills = _uiState.value.completedDrills + current.currentDrillIndex,
+                feedbackMessage = "Drill saved"
+            )
+            nextDrill()
         }
-        nextDrill()
     }
 
     fun nextDrill() {
         val current = _uiState.value
-        val newIndex = current.currentDrillIndex + 1
-        _uiState.value = if (newIndex >= current.drills.size) {
-            current.copy(completed = true)
-        } else {
-            current.copy(
-                currentDrillIndex = newIndex,
-                attempts = 0,
-                successes = 0,
-                direction = null
-            )
-        }
+        val newIndex = (current.currentDrillIndex + 1).coerceAtMost(current.drills.lastIndex)
+        _uiState.value = current.copy(
+            currentDrillIndex = newIndex,
+            completed = current.completedDrills.size == current.drills.size,
+            attempts = 0,
+            successes = 0,
+            direction = null
+        )
+    }
+
+    fun previousDrill() {
+        val current = _uiState.value
+        val newIndex = (current.currentDrillIndex - 1).coerceAtLeast(0)
+        _uiState.value = current.copy(
+            currentDrillIndex = newIndex,
+            attempts = 0,
+            successes = 0,
+            direction = null
+        )
+    }
+
+    fun clearFeedback() {
+        _uiState.value = _uiState.value.copy(feedbackMessage = null)
     }
 
     companion object {

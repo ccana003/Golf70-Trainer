@@ -16,9 +16,12 @@ class RoundTrackerViewModel(
     private val repository: GolfRepository
 ) : ViewModel() {
     private val _holes = MutableStateFlow((1..18).map { hole ->
-        HoleInput(hole, 4, false, false, 2, 0)
+        HoleInput(hole, 4, 4, false, false, 2, 0)
     })
     val holes: StateFlow<List<HoleInput>> = _holes.asStateFlow()
+
+    private val _saveMessage = MutableStateFlow<String?>(null)
+    val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
 
     fun updateHole(input: HoleInput) {
         _holes.value = _holes.value.map { if (it.holeNumber == input.holeNumber) input else it }
@@ -26,10 +29,17 @@ class RoundTrackerViewModel(
 
     fun summary(): RoundSummary = StatsCalculator.summarizeRound(_holes.value)
 
-    fun saveRound(course: String) {
+    fun saveRound(course: String, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
             repository.saveRound(course, _holes.value)
+            _saveMessage.value = "Round saved successfully"
+            _holes.value = (1..18).map { hole -> HoleInput(hole, 4, 4, false, false, 2, 0) }
+            onSaved()
         }
+    }
+
+    fun clearSaveMessage() {
+        _saveMessage.value = null
     }
 
     companion object {
