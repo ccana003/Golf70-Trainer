@@ -8,11 +8,12 @@ import com.golf70.trainer.data.local.RoundWithHoles
 import com.golf70.trainer.domain.DashboardStats
 import com.golf70.trainer.repository.GolfRepository
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
 class MainViewModel(
-    repository: GolfRepository
+    private val repository: GolfRepository
 ) : ViewModel() {
     val dashboardStats: StateFlow<DashboardStats> = repository.dashboardStats.stateIn(
         scope = viewModelScope,
@@ -31,6 +32,18 @@ class MainViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    fun deleteSession(sessionId: Long) {
+        viewModelScope.launch {
+            repository.deleteSession(sessionId)
+        }
+    }
+
+    fun deleteRound(roundId: Long) {
+        viewModelScope.launch {
+            repository.deleteRound(roundId)
+        }
+    }
 
     companion object {
         fun factory(repository: GolfRepository): ViewModelProvider.Factory =

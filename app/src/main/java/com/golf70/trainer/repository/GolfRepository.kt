@@ -1,5 +1,6 @@
 package com.golf70.trainer.repository
 
+import com.golf70.trainer.data.local.CourseLayoutEntity
 import com.golf70.trainer.data.local.DrillEntity
 import com.golf70.trainer.data.local.DrillResultEntity
 import com.golf70.trainer.data.local.GolfDatabase
@@ -101,4 +102,24 @@ class GolfRepository(
     }
 
     suspend fun saveGoal(goalEntity: GoalEntity) = db.goalDao().upsert(goalEntity)
+
+    suspend fun deleteSession(sessionId: Long) = db.practiceSessionDao().deleteSession(sessionId)
+
+    suspend fun deleteRound(roundId: Long) = db.roundDao().deleteRound(roundId)
+
+    suspend fun saveCourseLayout(courseName: String, pars: List<Int>) {
+        db.courseLayoutDao().upsert(
+            CourseLayoutEntity(
+                courseName = courseName.trim(),
+                parsCsv = pars.joinToString(",")
+            )
+        )
+    }
+
+    suspend fun getCourseLayout(courseName: String): List<Int>? {
+        val layout = db.courseLayoutDao().getLayout(courseName.trim()) ?: return null
+        val pars = layout.parsCsv.split(",").mapNotNull { it.toIntOrNull() }
+        return pars.takeIf { it.size == 18 }
+    }
+
 }

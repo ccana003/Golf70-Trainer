@@ -10,9 +10,10 @@ import androidx.room.RoomDatabase
         DrillResultEntity::class,
         RoundEntity::class,
         HoleStatEntity::class,
-        GoalEntity::class
+        GoalEntity::class,
+        CourseLayoutEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class GolfDatabase : RoomDatabase() {
@@ -20,4 +21,5 @@ abstract class GolfDatabase : RoomDatabase() {
     abstract fun roundDao(): RoundDao
     abstract fun goalDao(): GoalDao
     abstract fun analyticsDao(): AnalyticsDao
+    abstract fun courseLayoutDao(): CourseLayoutDao
 }

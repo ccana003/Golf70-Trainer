@@ -73,6 +73,7 @@ fun PracticeSessionScreen(
         Text("Next: ${state.nextDrill?.title ?: "Session complete"}")
         Text("Time remaining: ${formatTime(remaining)}")
         Text("Completed drills: ${state.completedDrills.size}/${state.drills.size}")
+        Text(if (state.sessionSaved) "Session status: Saved" else "Session status: In progress")
 
         LinearProgressIndicator(
             progress = {
@@ -101,6 +102,14 @@ fun PracticeSessionScreen(
             Button(onClick = { sessionViewModel.logMetric(success = true) }) { Text("Made") }
             Button(onClick = { sessionViewModel.logMetric(success = false) }) { Text("Missed") }
             Button(onClick = { sessionViewModel.completeCurrentDrill() }) { Text("Save Drill") }
+        }
+
+        Button(
+            onClick = { sessionViewModel.completeSession() },
+            enabled = !state.sessionSaved,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (state.sessionSaved) "Session Completed" else "Session Complete?")
         }
     }
 }

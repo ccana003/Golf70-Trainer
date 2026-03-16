@@ -97,3 +97,9 @@ data class GoalEntity(
     val targetGirPercent: Float = 55f,
     val targetPuttsPerRound: Float = 32f
 )
+
+@Entity(tableName = "course_layouts")
+data class CourseLayoutEntity(
+    @PrimaryKey val courseName: String,
+    val parsCsv: String
+)
