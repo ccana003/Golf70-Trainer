@@ -38,6 +38,37 @@ class RoundTrackerViewModel(
         }
     }
 
+    fun saveCourseLayout(course: String) {
+        val normalized = course.trim()
+        if (normalized.isBlank()) {
+            _saveMessage.value = "Enter a course name first"
+            return
+        }
+        viewModelScope.launch {
+            repository.saveCourseLayout(normalized, _holes.value.map { it.par })
+            _saveMessage.value = "Saved layout for $normalized"
+        }
+    }
+
+    fun loadCourseLayout(course: String) {
+        val normalized = course.trim()
+        if (normalized.isBlank()) {
+            _saveMessage.value = "Enter a course name first"
+            return
+        }
+        viewModelScope.launch {
+            val pars = repository.getCourseLayout(normalized)
+            if (pars == null) {
+                _saveMessage.value = "No saved layout for $normalized"
+                return@launch
+            }
+            _holes.value = _holes.value.mapIndexed { index, hole ->
+                hole.copy(par = pars[index])
+            }
+            _saveMessage.value = "Loaded layout for $normalized"
+        }
+    }
+
     fun clearSaveMessage() {
         _saveMessage.value = null
     }

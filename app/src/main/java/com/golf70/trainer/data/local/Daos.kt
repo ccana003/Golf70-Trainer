@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PracticeSessionDao {
+    @Query("DELETE FROM practice_sessions WHERE id = :sessionId")
+    suspend fun deleteSession(sessionId: Long)
+
     @Insert
     suspend fun insertSession(session: PracticeSessionEntity): Long
 
@@ -32,6 +35,9 @@ interface PracticeSessionDao {
 
 @Dao
 interface RoundDao {
+    @Query("DELETE FROM rounds WHERE id = :roundId")
+    suspend fun deleteRound(roundId: Long)
+
     @Insert
     suspend fun insertRound(round: RoundEntity): Long
 
@@ -68,4 +74,14 @@ interface AnalyticsDao {
 
     @Query("SELECT AVG(putts) FROM hole_stats")
     fun observeAveragePuttsPerHole(): Flow<Float?>
+}
+
+
+@Dao
+interface CourseLayoutDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(layout: CourseLayoutEntity)
+
+    @Query("SELECT * FROM course_layouts WHERE courseName = :courseName LIMIT 1")
+    suspend fun getLayout(courseName: String): CourseLayoutEntity?
 }

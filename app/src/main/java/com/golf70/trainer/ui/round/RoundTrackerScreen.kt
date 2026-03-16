@@ -23,7 +23,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.golf70.trainer.domain.HoleInput
@@ -57,6 +62,15 @@ fun RoundTrackerScreen(
         Text("Round Tracker", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(value = course, onValueChange = { course = it }, label = { Text("Course") })
 
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { vm.loadCourseLayout(course) }) {
+                Text("Load Saved Layout")
+            }
+            Button(onClick = { vm.saveCourseLayout(course) }) {
+                Text("Save Layout")
+            }
+        }
+
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(holes) { hole ->
                 HoleRow(hole = hole, onChange = vm::updateHole)
@@ -79,22 +93,22 @@ fun RoundTrackerScreen(
 private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("H${hole.holeNumber}", modifier = Modifier.padding(top = 16.dp))
-        OutlinedTextField(
-            value = hole.par.toString(),
-            onValueChange = { onChange(hole.copy(par = it.toIntOrNull() ?: hole.par)) },
-            label = { Text("Par") },
+        SelectAllNumberField(
+            value = hole.par,
+            onValueChange = { onChange(hole.copy(par = it)) },
+            label = "Par",
             modifier = Modifier.weight(1f)
         )
-        OutlinedTextField(
-            value = hole.score.toString(),
-            onValueChange = { onChange(hole.copy(score = it.toIntOrNull() ?: hole.score)) },
-            label = { Text("Score") },
+        SelectAllNumberField(
+            value = hole.score,
+            onValueChange = { onChange(hole.copy(score = it)) },
+            label = "Score",
             modifier = Modifier.weight(1f)
         )
-        OutlinedTextField(
-            value = hole.putts.toString(),
-            onValueChange = { onChange(hole.copy(putts = it.toIntOrNull() ?: hole.putts)) },
-            label = { Text("Putts") },
+        SelectAllNumberField(
+            value = hole.putts,
+            onValueChange = { onChange(hole.copy(putts = it)) },
+            label = "Putts",
             modifier = Modifier.weight(1f)
         )
         Column {
@@ -106,4 +120,32 @@ private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
             Checkbox(checked = hole.gir, onCheckedChange = { onChange(hole.copy(gir = it)) })
         }
     }
+}
+
+@Composable
+private fun SelectAllNumberField(
+    value: Int,
+    onValueChange: (Int) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    var fieldValue by remember(value) {
+        mutableStateOf(TextFieldValue(value.toString()))
+    }
+
+    OutlinedTextField(
+        value = fieldValue,
+        onValueChange = {
+            fieldValue = it
+            val numeric = it.text.toIntOrNull() ?: return@OutlinedTextField
+            onValueChange(numeric)
+        },
+        label = { Text(label) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        modifier = modifier.onFocusChanged { focusState ->
+            if (focusState.isFocused) {
+                fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+            }
+        }
+    )
 }

@@ -72,7 +72,13 @@ fun Golf70NavHost(vm: MainViewModel) {
             modifier = Modifier.padding(padding)
         ) {
             composable(Golf70Destination.Dashboard.route) {
-                DashboardScreen(stats = dashboard, sessions = sessions, rounds = rounds)
+                DashboardScreen(
+                    stats = dashboard,
+                    sessions = sessions,
+                    rounds = rounds,
+                    onDeleteSession = vm::deleteSession,
+                    onDeleteRound = vm::deleteRound
+                )
             }
             composable(Golf70Destination.Session.route) {
                 PracticeSessionScreen()

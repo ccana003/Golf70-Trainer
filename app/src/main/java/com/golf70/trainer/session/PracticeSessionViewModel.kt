@@ -21,7 +21,8 @@ data class SessionUiState(
     val direction: String? = null,
     val completed: Boolean = false,
     val completedDrills: Set<Int> = emptySet(),
-    val feedbackMessage: String? = null
+    val feedbackMessage: String? = null,
+    val sessionSaved: Boolean = false
 ) {
     val currentDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex)
     val nextDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex + 1)
@@ -41,8 +42,6 @@ class PracticeSessionViewModel(
         val definition = SeedSessions.weeklyPlan.first()
         _uiState.value = SessionUiState(drills = definition.drills)
         viewModelScope.launch {
-            val sessionId = repository.saveSession(definition)
-            _uiState.value = _uiState.value.copy(sessionId = sessionId)
             repository.saveGoal(GoalEntity())
         }
     }
@@ -101,6 +100,25 @@ class PracticeSessionViewModel(
             successes = 0,
             direction = null
         )
+    }
+
+
+
+    fun completeSession() {
+        val current = _uiState.value
+        if (current.sessionSaved) {
+            _uiState.value = current.copy(feedbackMessage = "Session already saved")
+            return
+        }
+        val definition = SeedSessions.weeklyPlan.first()
+        viewModelScope.launch {
+            val sessionId = repository.saveSession(definition)
+            _uiState.value = _uiState.value.copy(
+                sessionId = sessionId,
+                sessionSaved = true,
+                feedbackMessage = "Session complete and saved"
+            )
+        }
     }
 
     fun clearFeedback() {
