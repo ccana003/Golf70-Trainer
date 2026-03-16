@@ -12,25 +12,40 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.golf70.trainer.domain.HoleInput
 import com.golf70.trainer.ui.navigation.Dependencies
 
 @Composable
-fun RoundTrackerScreen(vm: RoundTrackerViewModel = viewModel(factory = RoundTrackerViewModel.factory(Dependencies.repository(LocalContext.current)))) {
+fun RoundTrackerScreen(
+    onRoundSaved: () -> Unit = {},
+    vm: RoundTrackerViewModel = viewModel(factory = RoundTrackerViewModel.factory(Dependencies.repository(LocalContext.current)))
+) {
     var course by remember { mutableStateOf("Home Course") }
     val holes by vm.holes.collectAsState()
     val summary = vm.summary()
+    val saveMessage by vm.saveMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(saveMessage) {
+        saveMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            vm.clearSaveMessage()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -38,6 +53,7 @@ fun RoundTrackerScreen(vm: RoundTrackerViewModel = viewModel(factory = RoundTrac
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+        SnackbarHost(hostState = snackbarHostState)
         Text("Round Tracker", style = MaterialTheme.typography.headlineSmall)
         OutlinedTextField(value = course, onValueChange = { course = it }, label = { Text("Course") })
 
@@ -50,7 +66,10 @@ fun RoundTrackerScreen(vm: RoundTrackerViewModel = viewModel(factory = RoundTrac
         Text("Total Score: ${summary.totalScore}")
         Text("Fairway %: ${summary.fairwayPercentage.toInt()}  GIR %: ${summary.girPercentage.toInt()}")
         Text("Putts / Round: ${summary.puttsPerRound}")
-        Button(onClick = { vm.saveRound(course) }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = { vm.saveRound(course, onRoundSaved) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Save Round")
         }
     }
@@ -60,6 +79,12 @@ fun RoundTrackerScreen(vm: RoundTrackerViewModel = viewModel(factory = RoundTrac
 private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text("H${hole.holeNumber}", modifier = Modifier.padding(top = 16.dp))
+        OutlinedTextField(
+            value = hole.par.toString(),
+            onValueChange = { onChange(hole.copy(par = it.toIntOrNull() ?: hole.par)) },
+            label = { Text("Par") },
+            modifier = Modifier.weight(1f)
+        )
         OutlinedTextField(
             value = hole.score.toString(),
             onValueChange = { onChange(hole.copy(score = it.toIntOrNull() ?: hole.score)) },

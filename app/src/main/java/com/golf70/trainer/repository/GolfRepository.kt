@@ -89,6 +89,7 @@ class GolfRepository(
                 HoleStatEntity(
                     roundId = roundId,
                     holeNumber = it.holeNumber,
+                    par = it.par,
                     score = it.score,
                     fairwayHit = it.fairwayHit,
                     gir = it.gir,

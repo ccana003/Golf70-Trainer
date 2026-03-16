@@ -16,6 +16,9 @@ class DrillTimerViewModel : ViewModel() {
     private val _isRunning = MutableStateFlow(false)
     val isRunning: StateFlow<Boolean> = _isRunning.asStateFlow()
 
+    private val _finishedCount = MutableStateFlow(0)
+    val finishedCount: StateFlow<Int> = _finishedCount.asStateFlow()
+
     private var timerJob: Job? = null
 
     fun start(durationSeconds: Int, onFinished: () -> Unit = {}) {
@@ -29,6 +32,7 @@ class DrillTimerViewModel : ViewModel() {
             }
             if (_remainingSeconds.value == 0) {
                 _isRunning.value = false
+                _finishedCount.value += 1
                 onFinished()
             }
         }
@@ -50,6 +54,7 @@ class DrillTimerViewModel : ViewModel() {
             }
             if (_remainingSeconds.value == 0) {
                 _isRunning.value = false
+                _finishedCount.value += 1
                 onFinished()
             }
         }

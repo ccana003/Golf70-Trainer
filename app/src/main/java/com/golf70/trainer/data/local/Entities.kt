@@ -81,6 +81,7 @@ data class HoleStatEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "round_id") val roundId: Long,
     val holeNumber: Int,
+    val par: Int,
     val score: Int,
     val fairwayHit: Boolean,
     val gir: Boolean,

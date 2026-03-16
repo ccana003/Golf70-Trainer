@@ -9,8 +9,8 @@ class StatsCalculatorTest {
     @Test
     fun summarizeRound_returnsExpectedValues() {
         val holes = listOf(
-            HoleInput(1, 4, true, true, 2, 0),
-            HoleInput(2, 5, false, false, 2, 1)
+            HoleInput(1, 4, 4, true, true, 2, 0),
+            HoleInput(2, 4, 5, false, false, 2, 1)
         )
 
         val summary = StatsCalculator.summarizeRound(holes)
