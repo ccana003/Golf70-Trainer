@@ -1,5 +1,6 @@
 package com.golf70.trainer.session
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -23,14 +24,16 @@ data class SessionUiState(
     val completedDrills: Set<Int> = emptySet(),
     val feedbackMessage: String? = null,
     val sessionSaved: Boolean = false,
-    val savedDrillIds: List<Long> = emptyList()
+    val savedDrillIds: List<Long> = emptyList(),
+    val saveStatus: String = "Unsaved"
 ) {
     val currentDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex)
     val nextDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex + 1)
 }
 
 class PracticeSessionViewModel(
-    private val repository: GolfRepository
+    private val repository: GolfRepository,
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SessionUiState())
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
@@ -41,15 +44,48 @@ class PracticeSessionViewModel(
 
     fun loadTodaySession() {
         val definition = SeedSessions.weeklyPlan.first()
-        _uiState.value = SessionUiState(drills = definition.drills)
+        _uiState.value = SessionUiState(
+            drills = definition.drills,
+            currentDrillIndex = savedStateHandle["drillIndex"] ?: 0,
+            attempts = savedStateHandle["attempts"] ?: 0,
+            successes = savedStateHandle["successes"] ?: 0,
+            direction = savedStateHandle["direction"],
+            saveStatus = "Unsaved"
+        )
         viewModelScope.launch {
             repository.saveGoal(GoalEntity())
         }
     }
 
-    fun logMetric(direction: String? = null, success: Boolean? = null) {
+    private fun cacheState(state: SessionUiState) {
+        savedStateHandle["drillIndex"] = state.currentDrillIndex
+        savedStateHandle["attempts"] = state.attempts
+        savedStateHandle["successes"] = state.successes
+        savedStateHandle["direction"] = state.direction
+    }
+
+    private fun ensureSessionSaved() {
         val current = _uiState.value
-        _uiState.value = current.copy(
+        if (current.sessionSaved) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
+            val definition = SeedSessions.weeklyPlan.first()
+            val sessionId = repository.saveSession(definition)
+            val drillIds = repository.getDrillIdsForSession(sessionId)
+            _uiState.value = _uiState.value.copy(
+                sessionId = sessionId,
+                sessionSaved = true,
+                savedDrillIds = drillIds,
+                saveStatus = "Saved",
+                feedbackMessage = "Session autosaved"
+            )
+        }
+    }
+
+    fun logMetric(direction: String? = null, success: Boolean? = null) {
+        ensureSessionSaved()
+        val current = _uiState.value
+        val updated = current.copy(
             attempts = current.attempts + 1,
             successes = current.successes + if (success == true) 1 else 0,
             direction = direction ?: current.direction,
@@ -58,14 +94,18 @@ class PracticeSessionViewModel(
                 success == true -> "Logged result: Made"
                 success == false -> "Logged result: Missed"
                 else -> "Logged"
-            }
+            },
+            saveStatus = "Unsaved"
         )
+        _uiState.value = updated
+        cacheState(updated)
     }
 
-    fun completeCurrentDrill() {
+    private fun persistCurrentDrill(advanceAfterSave: Boolean) {
         val current = _uiState.value
         if (!current.sessionSaved || current.sessionId == null) {
-            _uiState.value = current.copy(feedbackMessage = "Complete the session first to save drills")
+            ensureSessionSaved()
+            _uiState.value = current.copy(feedbackMessage = "Preparing session save...")
             return
         }
 
@@ -76,6 +116,7 @@ class PracticeSessionViewModel(
         }
 
         viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
             repository.saveDrillResult(
                 drillId = drillId,
                 attempts = current.attempts,
@@ -85,54 +126,54 @@ class PracticeSessionViewModel(
             )
             _uiState.value = _uiState.value.copy(
                 completedDrills = _uiState.value.completedDrills + current.currentDrillIndex,
-                feedbackMessage = "Drill saved"
+                feedbackMessage = "Drill saved",
+                saveStatus = "Saved"
             )
-            nextDrill()
+            if (advanceAfterSave) {
+                nextDrill(skipSave = true)
+            }
         }
     }
 
-    fun nextDrill() {
+    fun completeCurrentDrill() {
+        ensureSessionSaved()
+        persistCurrentDrill(advanceAfterSave = true)
+    }
+
+    fun nextDrill(skipSave: Boolean = false) {
+        if (!skipSave) {
+            ensureSessionSaved()
+            persistCurrentDrill(advanceAfterSave = false)
+        }
         val current = _uiState.value
         val newIndex = (current.currentDrillIndex + 1).coerceAtMost(current.drills.lastIndex)
-        _uiState.value = current.copy(
+        val updated = current.copy(
             currentDrillIndex = newIndex,
             completed = current.completedDrills.size == current.drills.size,
             attempts = 0,
             successes = 0,
             direction = null
         )
+        _uiState.value = updated
+        cacheState(updated)
     }
 
     fun previousDrill() {
         val current = _uiState.value
         val newIndex = (current.currentDrillIndex - 1).coerceAtLeast(0)
-        _uiState.value = current.copy(
+        val updated = current.copy(
             currentDrillIndex = newIndex,
             attempts = 0,
             successes = 0,
             direction = null
         )
+        _uiState.value = updated
+        cacheState(updated)
     }
 
-
-
     fun completeSession() {
-        val current = _uiState.value
-        if (current.sessionSaved) {
-            _uiState.value = current.copy(feedbackMessage = "Session already saved")
-            return
-        }
-        val definition = SeedSessions.weeklyPlan.first()
-        viewModelScope.launch {
-            val sessionId = repository.saveSession(definition)
-            val drillIds = repository.getDrillIdsForSession(sessionId)
-            _uiState.value = _uiState.value.copy(
-                sessionId = sessionId,
-                sessionSaved = true,
-                savedDrillIds = drillIds,
-                feedbackMessage = "Session complete and saved"
-            )
-        }
+        ensureSessionSaved()
+        _uiState.value = _uiState.value.copy(feedbackMessage = "Session finalized and saved", saveStatus = "Saved")
     }
 
     fun clearFeedback() {
@@ -142,8 +183,9 @@ class PracticeSessionViewModel(
     companion object {
         fun factory(repository: GolfRepository): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
-                override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                    return PracticeSessionViewModel(repository) as T
+                override fun <T : ViewModel> create(modelClass: Class<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T {
+                    val savedStateHandle = androidx.lifecycle.SavedStateHandle()
+                    return PracticeSessionViewModel(repository, savedStateHandle) as T
                 }
             }
     }

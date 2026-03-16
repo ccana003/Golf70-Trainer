@@ -4,6 +4,8 @@
     <application
         android:allowBackup="true"
         android:label="Golf70 Trainer"
+        android:icon="@drawable/ic_golf70_logo"
+        android:roundIcon="@drawable/ic_golf70_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.Golf70Trainer">
         <activity

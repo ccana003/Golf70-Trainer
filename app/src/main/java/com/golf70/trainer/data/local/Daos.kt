@@ -31,6 +31,33 @@ interface PracticeSessionDao {
 
     @Query("SELECT * FROM drills WHERE session_id = :sessionId ORDER BY orderInSession")
     suspend fun getDrillsForSession(sessionId: Long): List<DrillEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM practice_sessions
+        WHERE dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun countSessionsBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(durationMinutes), 0) FROM practice_sessions
+        WHERE dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun totalMinutesBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(drill_results.id)
+        FROM drill_results
+        INNER JOIN drills ON drills.id = drill_results.drill_id
+        INNER JOIN practice_sessions ON practice_sessions.id = drills.session_id
+        WHERE drill_results.timestampEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun countDrillResultsBetween(startInclusive: Long, endExclusive: Long): Int
 }
 
 @Dao
@@ -50,6 +77,22 @@ interface RoundDao {
 
     @Query("SELECT AVG(score) FROM rounds")
     fun observeScoringAverage(): Flow<Float?>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM rounds
+        WHERE dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun countRoundsBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT AVG(score) FROM rounds
+        WHERE dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun averageScoreBetween(startInclusive: Long, endExclusive: Long): Float?
 }
 
 @Dao
@@ -74,8 +117,43 @@ interface AnalyticsDao {
 
     @Query("SELECT AVG(putts) FROM hole_stats")
     fun observeAveragePuttsPerHole(): Flow<Float?>
-}
 
+    @Query(
+        """
+        SELECT COUNT(*) FROM hole_stats
+        INNER JOIN rounds ON rounds.id = hole_stats.round_id
+        WHERE rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun totalHolesBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM hole_stats
+        INNER JOIN rounds ON rounds.id = hole_stats.round_id
+        WHERE fairwayHit = 1 AND rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun fairwaysBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM hole_stats
+        INNER JOIN rounds ON rounds.id = hole_stats.round_id
+        WHERE gir = 1 AND rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun girBetween(startInclusive: Long, endExclusive: Long): Int
+
+    @Query(
+        """
+        SELECT AVG(putts) FROM hole_stats
+        INNER JOIN rounds ON rounds.id = hole_stats.round_id
+        WHERE rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        """
+    )
+    suspend fun averagePuttsPerHoleBetween(startInclusive: Long, endExclusive: Long): Float?
+}
 
 @Dao
 interface CourseLayoutDao {
@@ -84,4 +162,13 @@ interface CourseLayoutDao {
 
     @Query("SELECT * FROM course_layouts WHERE courseName = :courseName LIMIT 1")
     suspend fun getLayout(courseName: String): CourseLayoutEntity?
+}
+
+@Dao
+interface WeeklyPlanDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(plan: WeeklyPlanEntity)
+
+    @Query("SELECT * FROM weekly_plans WHERE weekStartEpochDay = :weekStartEpochDay LIMIT 1")
+    suspend fun getByWeekStart(weekStartEpochDay: Long): WeeklyPlanEntity?
 }

@@ -9,28 +9,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.golf70.trainer.data.local.PracticeSessionWithDrills
 import com.golf70.trainer.data.local.RoundWithHoles
 import com.golf70.trainer.domain.DashboardStats
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
+import com.golf70.trainer.domain.WeeklyPlan
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun DashboardScreen(
     stats: DashboardStats,
     sessions: List<PracticeSessionWithDrills>,
     rounds: List<RoundWithHoles>,
+    weeklyPlan: WeeklyPlan?,
+    onWeekBack: () -> Unit,
+    onWeekForward: () -> Unit,
     onDeleteSession: (Long) -> Unit,
     onDeleteRound: (Long) -> Unit
 ) {
@@ -38,11 +38,6 @@ fun DashboardScreen(
     val totalPracticeMinutes = sessions.sumOf { it.session.durationMinutes }
     val totalDrills = sessions.sumOf { it.drills.size }
     val avgSessionMinutes = if (sessionCount == 0) 0 else totalPracticeMinutes / sessionCount
-    var weekOffset by remember { mutableStateOf(0) }
-    val currentWeek = remember(weekOffset) {
-        val cal = Calendar.getInstance().apply { add(Calendar.WEEK_OF_YEAR, weekOffset) }
-        SimpleDateFormat("'Week of' MMM d", Locale.getDefault()).format(cal.time)
-    }
 
     LazyColumn(
         modifier = Modifier
@@ -53,10 +48,31 @@ fun DashboardScreen(
         item {
             Text("Goal Dashboard", style = MaterialTheme.typography.headlineSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { weekOffset -= 1 }) { Text("Previous Week") }
-                Button(onClick = { weekOffset += 1 }) { Text("Next Week") }
+                Button(onClick = onWeekBack) { Text("Previous Week") }
+                Button(onClick = onWeekForward) { Text("Next Week") }
             }
-            Text(currentWeek, style = MaterialTheme.typography.titleMedium)
+            Text(
+                weeklyPlan?.weekStart?.format(DateTimeFormatter.ofPattern("'Week of' MMM d")) ?: "Loading week…",
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        if (weeklyPlan != null) {
+            item {
+                Card {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("This week needs to be accomplished", fontWeight = FontWeight.SemiBold)
+                        weeklyPlan.tasks().forEach { task ->
+                            Text("${task.title}: ${task.completed}/${task.target}")
+                            LinearProgressIndicator(
+                                progress = { task.progress.coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        Text("Focus note: ${weeklyPlan.notes}")
+                    }
+                }
+            }
         }
 
         item { GoalRow("Fairway %", stats.fairwayPercent / 100f, "${stats.fairwayPercent.toInt()}%") }

@@ -103,3 +103,13 @@ data class CourseLayoutEntity(
     @PrimaryKey val courseName: String,
     val parsCsv: String
 )
+
+@Entity(tableName = "weekly_plans")
+data class WeeklyPlanEntity(
+    @PrimaryKey val weekStartEpochDay: Long,
+    val targetSessions: Int,
+    val targetMinutes: Int,
+    val targetRounds: Int,
+    val targetDrillSaves: Int,
+    val notes: String
+)
