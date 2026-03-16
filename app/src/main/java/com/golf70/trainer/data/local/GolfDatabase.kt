@@ -11,9 +11,10 @@ import androidx.room.RoomDatabase
         RoundEntity::class,
         HoleStatEntity::class,
         GoalEntity::class,
-        CourseLayoutEntity::class
+        CourseLayoutEntity::class,
+        WeeklyPlanEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class GolfDatabase : RoomDatabase() {
@@ -22,4 +23,5 @@ abstract class GolfDatabase : RoomDatabase() {
     abstract fun goalDao(): GoalDao
     abstract fun analyticsDao(): AnalyticsDao
     abstract fun courseLayoutDao(): CourseLayoutDao
+    abstract fun weeklyPlanDao(): WeeklyPlanDao
 }

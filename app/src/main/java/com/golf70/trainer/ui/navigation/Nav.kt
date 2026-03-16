@@ -1,5 +1,6 @@
 package com.golf70.trainer.ui.navigation
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -12,15 +13,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.golf70.trainer.R
 import com.golf70.trainer.ui.dashboard.DashboardScreen
 import com.golf70.trainer.ui.progress.ProgressScreen
 import com.golf70.trainer.ui.round.RoundTrackerScreen
@@ -39,8 +43,23 @@ fun Golf70NavHost(vm: MainViewModel) {
     val dashboard by vm.dashboardStats.collectAsState()
     val sessions by vm.sessions.collectAsState()
     val rounds by vm.rounds.collectAsState()
+    val weeklyPlanState by vm.weeklyPlanState.collectAsState()
     val items = Golf70Destination.entries
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Row {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_golf70_logo),
+                            contentDescription = "Golf70 logo",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text("  Golf70", style = MaterialTheme.typography.titleLarge)
+                    }
+                }
+            )
+        },
         bottomBar = {
             BottomAppBar {
                 val backStackEntry by navController.currentBackStackEntryAsState()
@@ -76,6 +95,9 @@ fun Golf70NavHost(vm: MainViewModel) {
                     stats = dashboard,
                     sessions = sessions,
                     rounds = rounds,
+                    weeklyPlan = weeklyPlanState.plan,
+                    onWeekBack = { vm.changeWeek(-1) },
+                    onWeekForward = { vm.changeWeek(1) },
                     onDeleteSession = vm::deleteSession,
                     onDeleteRound = vm::deleteRound
                 )
