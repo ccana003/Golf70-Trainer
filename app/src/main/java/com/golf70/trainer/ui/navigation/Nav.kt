@@ -1,0 +1,87 @@
+package com.golf70.trainer.ui.navigation
+
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.golf70.trainer.ui.dashboard.DashboardScreen
+import com.golf70.trainer.ui.progress.ProgressScreen
+import com.golf70.trainer.ui.round.RoundTrackerScreen
+import com.golf70.trainer.ui.session.PracticeSessionScreen
+
+enum class Golf70Destination(val route: String, val label: String) {
+    Dashboard("dashboard", "Dashboard"),
+    Session("session", "Start Session"),
+    Round("round", "Log Round"),
+    Progress("progress", "Progress")
+}
+
+@Composable
+fun Golf70NavHost(vm: MainViewModel) {
+    val navController = rememberNavController()
+    val dashboard = vm.dashboardStats.collectAsState()
+    val items = Golf70Destination.entries
+    Scaffold(
+        bottomBar = {
+            BottomAppBar {
+                val backStackEntry by navController.currentBackStackEntryAsState()
+                val destination = backStackEntry?.destination
+                items.forEach { item ->
+                    NavigationBarItem(
+                        selected = destination?.hierarchy?.any { it.route == item.route } == true,
+                        onClick = { navController.navigate(item.route) },
+                        icon = {
+                            Icon(
+                                imageVector = when (item) {
+                                    Golf70Destination.Dashboard -> Icons.Default.Home
+                                    Golf70Destination.Session -> Icons.Default.PlayArrow
+                                    Golf70Destination.Round -> Icons.Default.Add
+                                    Golf70Destination.Progress -> Icons.Default.DateRange
+                                },
+                                contentDescription = item.label
+                            )
+                        },
+                        label = { Text(item.label, style = MaterialTheme.typography.labelSmall) }
+                    )
+                }
+            }
+        }
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = Golf70Destination.Dashboard.route,
+            modifier = Modifier.padding(padding)
+        ) {
+            composable(Golf70Destination.Dashboard.route) {
+                DashboardScreen(stats = dashboard)
+            }
+            composable(Golf70Destination.Session.route) {
+                PracticeSessionScreen()
+            }
+            composable(Golf70Destination.Round.route) {
+                RoundTrackerScreen()
+            }
+            composable(Golf70Destination.Progress.route) {
+                ProgressScreen(stats = dashboard.value)
+            }
+        }
+    }
+}
