@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -104,13 +105,20 @@ fun PracticeSessionScreen(
         }
 
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Week ${state.currentWeek} Training", style = MaterialTheme.typography.headlineSmall)
                 Text("${state.phase} • ${state.focus}")
-                Text(
-                    "Session order: Warm-up → Full Swing → Short Game → Putting → Pressure/Simulation",
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Choose session day:", style = MaterialTheme.typography.labelMedium)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(state.sessionLayouts.size) { index ->
+                        val layout = state.sessionLayouts[index]
+                        FilterChip(
+                            selected = state.selectedLayoutIndex == index,
+                            onClick = { sessionViewModel.selectLayout(index) },
+                            label = { Text(layout.type) }
+                        )
+                    }
+                }
             }
         }
 
