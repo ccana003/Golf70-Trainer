@@ -1,7 +1,9 @@
 package com.golf70.trainer.ui.navigation
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
@@ -18,7 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -50,10 +54,11 @@ fun Golf70NavHost(vm: MainViewModel) {
             TopAppBar(
                 title = {
                     Row {
-                        Icon(
+                        Image(
                             painter = painterResource(id = R.drawable.ic_golf70_logo),
                             contentDescription = "Golf70 logo",
-                            tint = MaterialTheme.colorScheme.onSurface
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(36.dp)
                         )
                         Text("  Golf70", style = MaterialTheme.typography.titleLarge)
                     }

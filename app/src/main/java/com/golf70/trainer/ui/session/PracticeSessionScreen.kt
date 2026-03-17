@@ -2,17 +2,16 @@ package com.golf70.trainer.ui.session
 
 import android.media.AudioManager
 import android.media.ToneGenerator
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -20,50 +19,56 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.golf70.trainer.R
 import com.golf70.trainer.session.PracticeSessionViewModel
-import com.golf70.trainer.timer.DrillTimerViewModel
 import com.golf70.trainer.ui.navigation.Dependencies
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PracticeSessionScreen(
     sessionViewModel: PracticeSessionViewModel = viewModel(
-        factory = PracticeSessionViewModel.factory(Dependencies.repository(LocalContext.current))
-    ),
-    timerViewModel: DrillTimerViewModel = viewModel()
+        factory = PracticeSessionViewModel.factory(Dependencies.repository(LocalContext.current), LocalContext.current)
+    )
 ) {
     val state by sessionViewModel.uiState.collectAsState()
-    val remaining by timerViewModel.remainingSeconds.collectAsState()
-    val running by timerViewModel.isRunning.collectAsState()
-    val finishedCount by timerViewModel.finishedCount.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    var expanded by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(state.feedbackMessage) {
-        state.feedbackMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            sessionViewModel.clearFeedback()
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE || event == Lifecycle.Event.ON_STOP) {
+                sessionViewModel.persistSessionState()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
-    LaunchedEffect(finishedCount) {
-        if (finishedCount > 0) {
-            ToneGenerator(AudioManager.STREAM_ALARM, 100).startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1200)
-            snackbarHostState.showSnackbar("Timer complete")
+    LaunchedEffect(state.feedbackMessage) {
+        state.feedbackMessage?.let {
+            if (it == "Timer complete") {
+                ToneGenerator(AudioManager.STREAM_ALARM, 100).startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1200)
+            }
+            snackbarHostState.showSnackbar(it)
+            sessionViewModel.clearFeedback()
         }
     }
 
@@ -75,40 +80,26 @@ fun PracticeSessionScreen(
     ) {
         SnackbarHost(hostState = snackbarHostState)
 
-        Text("Session Layout", style = MaterialTheme.typography.labelLarge)
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
-            val selectedLayout = state.sessionLayouts.getOrNull(state.selectedLayoutIndex)?.type ?: "Default Layout"
-            OutlinedTextField(
-                value = selectedLayout,
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth()
-            )
-            ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                val options = if (state.sessionLayouts.isEmpty()) listOf("Default Layout") else state.sessionLayouts.map { it.type }
-                options.forEachIndexed { index, label ->
-                    DropdownMenuItem(
-                        text = { Text(label) },
-                        onClick = {
-                            sessionViewModel.selectLayout(index)
-                            timerViewModel.reset()
-                            expanded = false
-                        }
-                    )
-                }
-            }
+        Image(
+            painter = painterResource(id = R.drawable.ic_golf70_logo),
+            contentDescription = "Golf70 logo",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp)
+        )
+
+        if (state.completed) {
+            Text("Session Complete", style = MaterialTheme.typography.headlineSmall)
+            Text("Week ${state.currentWeek}: ${state.phase}")
+            Text("Great work finishing today's structured training.")
+            return@Column
         }
 
-        Text("Practice Session", style = MaterialTheme.typography.headlineSmall)
+        Text("Week ${state.currentWeek} Training", style = MaterialTheme.typography.headlineSmall)
+        Text("${state.phase} • ${state.focus}")
+        Text("Session order: Warm-up → Full Swing → Short Game → Putting → Pressure/Simulation")
+
         val drill = state.currentDrill
         if (drill == null) {
             Text("No drill loaded.")
@@ -118,7 +109,7 @@ fun PracticeSessionScreen(
         Text("Current drill: ${drill.title}")
         Text(drill.instructions)
         Text("Next: ${state.nextDrill?.title ?: "Session complete"}")
-        Text("Time remaining: ${formatTime(remaining)}")
+        Text("Time remaining: ${formatTime(state.remainingSeconds)}")
         Text("Completed drills: ${state.completedDrills.size}/${state.drills.size}")
 
         val badgeColor = if (state.sessionSaved) Color(0xFF2E7D32) else Color(0xFFEF6C00)
@@ -143,12 +134,14 @@ fun PracticeSessionScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Button(onClick = { timerViewModel.start(drill.timerSeconds) }) { Text("Start") }
-            Button(onClick = { if (running) timerViewModel.pause() else timerViewModel.resume() }) {
-                Text(if (running) "Pause" else "Resume")
+            Button(onClick = { sessionViewModel.startTimer() }) { Text("Start") }
+            Button(onClick = { if (state.timerRunning) sessionViewModel.pauseTimer() else sessionViewModel.resumeTimer() }) {
+                Text(if (state.timerRunning) "Pause" else "Resume")
             }
-            Button(onClick = { sessionViewModel.previousDrill(); timerViewModel.reset() }) { Text("Previous") }
-            Button(onClick = { sessionViewModel.nextDrill(); timerViewModel.reset() }) { Text("Next") }
+            Button(onClick = { sessionViewModel.previousDrill() }) { Text("Previous") }
+            if (!state.isLastDrill) {
+                Button(onClick = { sessionViewModel.nextDrill() }) { Text("Next") }
+            }
         }
 
         Text("Quick logging")
@@ -164,11 +157,12 @@ fun PracticeSessionScreen(
         }
 
         Button(
-            onClick = { sessionViewModel.completeSession() },
-            enabled = !state.sessionSaved,
+            onClick = {
+                if (state.isLastDrill) sessionViewModel.completeSession() else sessionViewModel.nextDrill()
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(if (state.sessionSaved) "Finalize Session" else "Save + Finalize")
+            Text(if (state.isLastDrill) "Complete Session" else "Next")
         }
     }
 }
