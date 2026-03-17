@@ -51,24 +51,26 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            Image(
-                painter = painterResource(id = R.drawable.ic_golf70_logo),
-                contentDescription = "Golf70 logo",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(96.dp)
-            )
-            Text("Goal Dashboard", style = MaterialTheme.typography.headlineSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onWeekBack, modifier = Modifier.weight(1f)) { Text("Previous Week") }
-                Button(onClick = onWeekForward, modifier = Modifier.weight(1f)) { Text("Next Week") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Image(
+                    painter = painterResource(id = R.drawable.ic_golf70_logo),
+                    contentDescription = "Golf70 logo",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                )
+                Text("Goal Dashboard", style = MaterialTheme.typography.headlineSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = onWeekBack, modifier = Modifier.weight(1f)) { Text("Previous Week") }
+                    Button(onClick = onWeekForward, modifier = Modifier.weight(1f)) { Text("Next Week") }
+                }
+                Text(
+                    weeklyPlan?.weekStart?.format(DateTimeFormatter.ofPattern("'Week of' MMM d")) ?: "Loading week…",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
             }
-            Text(
-                weeklyPlan?.weekStart?.format(DateTimeFormatter.ofPattern("'Week of' MMM d")) ?: "Loading week…",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
         }
 
         if (weeklyPlan != null) {
