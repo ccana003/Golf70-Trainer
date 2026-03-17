@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.golf70.trainer.data.local.GoalEntity
 import com.golf70.trainer.domain.DrillDefinition
 import com.golf70.trainer.domain.SeedSessions
+import com.golf70.trainer.domain.SessionDefinition
 import com.golf70.trainer.repository.GolfRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +26,9 @@ data class SessionUiState(
     val feedbackMessage: String? = null,
     val sessionSaved: Boolean = false,
     val savedDrillIds: List<Long> = emptyList(),
-    val saveStatus: String = "Unsaved"
+    val saveStatus: String = "Unsaved",
+    val sessionLayouts: List<SessionDefinition> = emptyList(),
+    val selectedLayoutIndex: Int = 0
 ) {
     val currentDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex)
     val nextDrill: DrillDefinition? = drills.getOrNull(currentDrillIndex + 1)
@@ -43,16 +46,20 @@ class PracticeSessionViewModel(
     }
 
     fun loadTodaySession() {
-        val definition = SeedSessions.weeklyPlan.first()
-        _uiState.value = SessionUiState(
-            drills = definition.drills,
-            currentDrillIndex = savedStateHandle["drillIndex"] ?: 0,
-            attempts = savedStateHandle["attempts"] ?: 0,
-            successes = savedStateHandle["successes"] ?: 0,
-            direction = savedStateHandle["direction"],
-            saveStatus = "Unsaved"
-        )
         viewModelScope.launch {
+            val layouts = repository.sessionLayouts().ifEmpty { listOf(SeedSessions.weeklyPlan.first()) }
+            val selectedIndex = _uiState.value.selectedLayoutIndex.coerceIn(0, layouts.lastIndex)
+            val definition = layouts[selectedIndex]
+            _uiState.value = SessionUiState(
+                drills = definition.drills,
+                currentDrillIndex = 0,
+                attempts = 0,
+                successes = 0,
+                direction = null,
+                saveStatus = "Unsaved",
+                sessionLayouts = layouts,
+                selectedLayoutIndex = selectedIndex
+            )
             repository.saveGoal(GoalEntity())
         }
     }
@@ -69,8 +76,8 @@ class PracticeSessionViewModel(
         if (current.sessionSaved) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
-            val definition = SeedSessions.weeklyPlan.first()
-            val sessionId = repository.saveSession(definition)
+            val selected = _uiState.value.sessionLayouts.getOrNull(_uiState.value.selectedLayoutIndex) ?: SeedSessions.weeklyPlan.first()
+            val sessionId = repository.saveSession(selected)
             val drillIds = repository.getDrillIdsForSession(sessionId)
             _uiState.value = _uiState.value.copy(
                 sessionId = sessionId,
@@ -166,6 +173,30 @@ class PracticeSessionViewModel(
             attempts = 0,
             successes = 0,
             direction = null
+        )
+        _uiState.value = updated
+        cacheState(updated)
+    }
+
+
+    fun selectLayout(index: Int) {
+        val current = _uiState.value
+        val clamped = index.coerceIn(0, current.sessionLayouts.lastIndex.coerceAtLeast(0))
+        val layout = current.sessionLayouts.getOrNull(clamped) ?: SeedSessions.weeklyPlan.first()
+        val updated = current.copy(
+            drills = layout.drills,
+            currentDrillIndex = 0,
+            attempts = 0,
+            successes = 0,
+            direction = null,
+            completed = false,
+            completedDrills = emptySet(),
+            sessionId = null,
+            sessionSaved = false,
+            savedDrillIds = emptyList(),
+            saveStatus = "Unsaved",
+            selectedLayoutIndex = clamped,
+            feedbackMessage = "Session layout updated"
         )
         _uiState.value = updated
         cacheState(updated)

@@ -26,6 +26,10 @@ interface PracticeSessionDao {
     fun observeSessionsWithDrills(): Flow<List<PracticeSessionWithDrills>>
 
     @Transaction
+    @Query("SELECT * FROM practice_sessions ORDER BY dateEpochMillis DESC")
+    suspend fun getSessionsWithDrills(): List<PracticeSessionWithDrills>
+
+    @Transaction
     @Query("SELECT * FROM practice_sessions WHERE id = :sessionId LIMIT 1")
     suspend fun getSessionWithDrills(sessionId: Long): PracticeSessionWithDrills?
 

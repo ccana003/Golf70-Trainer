@@ -28,7 +28,8 @@ class ProgressViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = ProgressUiState(loading = true)
-            _uiState.value = ProgressUiState(loading = false, weeks = repository.weeklyProgress())
+            val nonEmptyWeeks = repository.weeklyProgress().filterNot { it.sessions == 0 && it.rounds == 0 }
+            _uiState.value = ProgressUiState(loading = false, weeks = nonEmptyWeeks)
         }
     }
 

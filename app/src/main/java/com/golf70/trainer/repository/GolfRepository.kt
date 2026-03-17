@@ -10,7 +10,9 @@ import com.golf70.trainer.data.local.PracticeSessionEntity
 import com.golf70.trainer.data.local.RoundEntity
 import com.golf70.trainer.data.local.WeeklyPlanEntity
 import com.golf70.trainer.domain.DashboardStats
+import com.golf70.trainer.domain.DrillDefinition
 import com.golf70.trainer.domain.HoleInput
+import com.golf70.trainer.domain.SeedSessions
 import com.golf70.trainer.domain.SessionDefinition
 import com.golf70.trainer.domain.WeeklyPlan
 import com.golf70.trainer.domain.WeeklyProgress
@@ -42,6 +44,36 @@ class GolfRepository(
             puttsPerRound = (avgPuttsHole ?: 0f) * 18,
             scoringAverage = scoreAvg ?: 0f
         )
+    }
+
+
+    suspend fun sessionLayouts(): List<SessionDefinition> {
+        val customLayouts = db.practiceSessionDao().getSessionsWithDrills()
+            .asSequence()
+            .filter { it.drills.isNotEmpty() }
+            .distinctBy { sessionWithDrills ->
+                sessionWithDrills.drills.joinToString("|") { drill ->
+                    listOf(drill.name, drill.instructions, drill.timerDurationSeconds.toString()).joinToString("~")
+                }
+            }
+            .mapIndexed { index, sessionWithDrills ->
+                SessionDefinition(
+                    type = "Custom Layout ${index + 1}",
+                    durationMinutes = sessionWithDrills.session.durationMinutes,
+                    drills = sessionWithDrills.drills.map { drill ->
+                        DrillDefinition(
+                            title = drill.name,
+                            instructions = drill.instructions,
+                            timerSeconds = drill.timerDurationSeconds,
+                            metrics = emptyList()
+                        )
+                    }
+                )
+            }
+            .toList()
+
+        val defaultLayout = SeedSessions.weeklyPlan.first().copy(type = "Default session layout")
+        return listOf(defaultLayout) + customLayouts
     }
 
     suspend fun saveSession(definition: SessionDefinition): Long {
