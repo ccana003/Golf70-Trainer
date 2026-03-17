@@ -68,13 +68,28 @@ class PracticeSessionViewModel(
     fun loadTodaySession() {
         viewModelScope.launch {
             val restored = persistence.load()
-            if (restored != null) {
+            val currentProgramWeek = resolveCurrentProgramWeek()
+            if (restored != null && restored.currentWeek == currentProgramWeek) {
                 restorePersistedSession(restored)
+            } else if (restored != null) {
+                // If calendar time has moved into a new training week, do not keep resuming
+                // last week's in-progress session.
+                persistence.clearSession()
+                createNewWeekSession()
+                _uiState.value = _uiState.value.copy(
+                    feedbackMessage = "New week detected. Loaded Week $currentProgramWeek session."
+                )
             } else {
                 createNewWeekSession()
             }
             repository.saveGoal(GoalEntity())
         }
+    }
+
+    private fun resolveCurrentProgramWeek(now: Long = System.currentTimeMillis()): Int {
+        val programStart = persistence.programStartTimestamp() ?: now.also { persistence.saveProgramStartTimestamp(it) }
+        val startDate = Instant.ofEpochMilli(programStart).atZone(ZoneId.systemDefault()).toLocalDate()
+        return TrainingProgram.resolveWeek(programStartDate = startDate, today = LocalDate.now()).weekNumber
     }
 
     private fun buildSessionLayoutsForWeek(currentWeek: Int): Pair<String, List<SessionDefinition>> {
@@ -100,9 +115,7 @@ class PracticeSessionViewModel(
 
     private fun createNewWeekSession(selectedLayoutIndex: Int = 0) {
         val now = System.currentTimeMillis()
-        val programStart = persistence.programStartTimestamp() ?: now.also { persistence.saveProgramStartTimestamp(it) }
-        val startDate = Instant.ofEpochMilli(programStart).atZone(ZoneId.systemDefault()).toLocalDate()
-        val trainingWeek = TrainingProgram.resolveWeek(programStartDate = startDate, today = LocalDate.now())
+        val trainingWeek = TrainingProgram.weekPlan(resolveCurrentProgramWeek(now))
         val (phaseFocus, layouts) = buildSessionLayoutsForWeek(trainingWeek.weekNumber)
         val boundedLayoutIndex = selectedLayoutIndex.coerceIn(0, layouts.lastIndex)
         val selectedLayout = layouts[boundedLayoutIndex]
