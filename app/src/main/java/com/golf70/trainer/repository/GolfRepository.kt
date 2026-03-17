@@ -167,19 +167,19 @@ class GolfRepository(
     suspend fun getWeeklyPlanWithProgress(weekOffset: Int): WeeklyPlan {
         val weekStart = LocalDate.now().plusWeeks(weekOffset.toLong()).with(java.time.DayOfWeek.MONDAY)
         val weekStartEpochDay = weekStart.toEpochDay()
-        val planEntity = db.weeklyPlanDao().getByWeekStart(weekStartEpochDay) ?: defaultWeeklyPlan(weekStart)
-            .also {
-                db.weeklyPlanDao().upsert(
-                    WeeklyPlanEntity(
-                        weekStartEpochDay = weekStartEpochDay,
-                        targetSessions = it.targetSessions,
-                        targetMinutes = it.targetMinutes,
-                        targetRounds = it.targetRounds,
-                        targetDrillSaves = it.targetDrillSaves,
-                        notes = it.notes
-                    )
-                )
-            }
+        val planEntity = db.weeklyPlanDao().getByWeekStart(weekStartEpochDay) ?: run {
+            val default = defaultWeeklyPlan(weekStart)
+            val newEntity = WeeklyPlanEntity(
+                weekStartEpochDay = weekStartEpochDay,
+                targetSessions = default.targetSessions,
+                targetMinutes = default.targetMinutes,
+                targetRounds = default.targetRounds,
+                targetDrillSaves = default.targetDrillSaves,
+                notes = default.notes
+            )
+            db.weeklyPlanDao().upsert(newEntity)
+            newEntity
+        }
 
         val range = weekMillisRange(weekStart)
         val sessions = db.practiceSessionDao().countSessionsBetween(range.first, range.second)
