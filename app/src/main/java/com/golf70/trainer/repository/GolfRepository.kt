@@ -18,6 +18,7 @@ import com.golf70.trainer.domain.WeeklyPlan
 import com.golf70.trainer.domain.WeeklyProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -44,6 +45,7 @@ class GolfRepository(
             scoringAverage = scoreAvg ?: 0f
         )
     }
+
 
     suspend fun sessionLayouts(): List<SessionDefinition> {
         val customLayouts = db.practiceSessionDao().getSessionsWithDrills()
@@ -165,25 +167,25 @@ class GolfRepository(
     suspend fun getWeeklyPlanWithProgress(weekOffset: Int): WeeklyPlan {
         val weekStart = LocalDate.now().plusWeeks(weekOffset.toLong()).with(java.time.DayOfWeek.MONDAY)
         val weekStartEpochDay = weekStart.toEpochDay()
-        val planEntity = db.weeklyPlanDao().getByWeekStart(weekStartEpochDay)
-            ?: defaultWeeklyPlan(weekStart).let {
-                val newEntity = WeeklyPlanEntity(
-                    weekStartEpochDay = weekStartEpochDay,
-                    targetSessions = it.targetSessions,
-                    targetMinutes = it.targetMinutes,
-                    targetRounds = it.targetRounds,
-                    targetDrillSaves = it.targetDrillSaves,
-                    notes = it.notes
+        val planEntity = db.weeklyPlanDao().getByWeekStart(weekStartEpochDay) ?: defaultWeeklyPlan(weekStart)
+            .also {
+                db.weeklyPlanDao().upsert(
+                    WeeklyPlanEntity(
+                        weekStartEpochDay = weekStartEpochDay,
+                        targetSessions = it.targetSessions,
+                        targetMinutes = it.targetMinutes,
+                        targetRounds = it.targetRounds,
+                        targetDrillSaves = it.targetDrillSaves,
+                        notes = it.notes
+                    )
                 )
-                db.weeklyPlanDao().upsert(newEntity)
-                newEntity
             }
 
         val range = weekMillisRange(weekStart)
-        val sessionsCount = db.practiceSessionDao().countSessionsBetween(range.first, range.second)
-        val minutesCount = db.practiceSessionDao().totalMinutesBetween(range.first, range.second)
-        val roundsCount = db.roundDao().countRoundsBetween(range.first, range.second)
-        val drillSavesCount = db.practiceSessionDao().countDrillResultsBetween(range.first, range.second)
+        val sessions = db.practiceSessionDao().countSessionsBetween(range.first, range.second)
+        val minutes = db.practiceSessionDao().totalMinutesBetween(range.first, range.second)
+        val rounds = db.roundDao().countRoundsBetween(range.first, range.second)
+        val drillSaves = db.practiceSessionDao().countDrillResultsBetween(range.first, range.second)
 
         return WeeklyPlan(
             weekStart = weekStart,
@@ -192,10 +194,10 @@ class GolfRepository(
             targetRounds = planEntity.targetRounds,
             targetDrillSaves = planEntity.targetDrillSaves,
             notes = planEntity.notes,
-            completedSessions = sessionsCount,
-            completedMinutes = minutesCount,
-            completedRounds = roundsCount,
-            completedDrillSaves = drillSavesCount
+            completedSessions = sessions,
+            completedMinutes = minutes,
+            completedRounds = rounds,
+            completedDrillSaves = drillSaves
         )
     }
 
