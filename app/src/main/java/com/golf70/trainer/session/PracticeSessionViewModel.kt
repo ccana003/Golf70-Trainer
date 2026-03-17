@@ -10,7 +10,9 @@ import com.golf70.trainer.domain.DrillDefinition
 import com.golf70.trainer.domain.SessionDefinition
 import com.golf70.trainer.domain.TrainingProgram
 import com.golf70.trainer.repository.GolfRepository
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -57,6 +59,7 @@ class PracticeSessionViewModel(
     val uiState: StateFlow<SessionUiState> = _uiState.asStateFlow()
 
     private var timerJob: Job? = null
+    private var saveSessionJob: Deferred<Pair<Long, List<Long>>>? = null
 
     init {
         loadTodaySession()
@@ -74,19 +77,46 @@ class PracticeSessionViewModel(
         }
     }
 
-    private fun createNewWeekSession() {
+    private fun buildSessionLayoutsForWeek(currentWeek: Int): Pair<String, List<SessionDefinition>> {
+        val trainingWeek = TrainingProgram.weekPlan(currentWeek)
+        val weekLabel = "Week ${trainingWeek.weekNumber}"
+        val warmup = trainingWeek.drills.getOrNull(0)
+        val fullSwing = trainingWeek.drills.getOrNull(1)
+        val shortGame = trainingWeek.drills.getOrNull(2)
+        val putting = trainingWeek.drills.getOrNull(3)
+        val pressure = trainingWeek.drills.getOrNull(4)
+
+        val day1 = listOfNotNull(warmup, fullSwing, shortGame, putting, pressure)
+        val day2 = listOfNotNull(warmup, shortGame, putting, pressure)
+        val day3 = listOfNotNull(warmup, fullSwing, shortGame, pressure)
+
+        val layouts = listOf(
+            SessionDefinition(type = "$weekLabel • Day 1", durationMinutes = 55, drills = day1),
+            SessionDefinition(type = "$weekLabel • Day 2", durationMinutes = 45, drills = day2),
+            SessionDefinition(type = "$weekLabel • Day 3", durationMinutes = 50, drills = day3)
+        )
+        return "${trainingWeek.phase} • ${trainingWeek.focus}" to layouts
+    }
+
+    private fun createNewWeekSession(selectedLayoutIndex: Int = 0) {
         val now = System.currentTimeMillis()
         val programStart = persistence.programStartTimestamp() ?: now.also { persistence.saveProgramStartTimestamp(it) }
         val startDate = Instant.ofEpochMilli(programStart).atZone(ZoneId.systemDefault()).toLocalDate()
         val trainingWeek = TrainingProgram.resolveWeek(programStartDate = startDate, today = LocalDate.now())
-        val drills = trainingWeek.drills
-        val firstDuration = drills.firstOrNull()?.timerSeconds ?: 0
+        val (phaseFocus, layouts) = buildSessionLayoutsForWeek(trainingWeek.weekNumber)
+        val boundedLayoutIndex = selectedLayoutIndex.coerceIn(0, layouts.lastIndex)
+        val selectedLayout = layouts[boundedLayoutIndex]
+        val firstDuration = selectedLayout.drills.firstOrNull()?.timerSeconds ?: 0
+        val phase = phaseFocus.substringBefore(" • ")
+        val focus = phaseFocus.substringAfter(" • ", "")
 
         val newState = SessionUiState(
-            drills = drills,
+            drills = selectedLayout.drills,
+            sessionLayouts = layouts,
+            selectedLayoutIndex = boundedLayoutIndex,
             currentWeek = trainingWeek.weekNumber,
-            phase = trainingWeek.phase,
-            focus = trainingWeek.focus,
+            phase = phase,
+            focus = focus,
             remainingSeconds = firstDuration,
             timerRunning = false,
             sessionStartTimestamp = now,
@@ -99,25 +129,36 @@ class PracticeSessionViewModel(
     }
 
     private fun restorePersistedSession(restored: PersistedSessionState) {
-        val trainingWeek = TrainingProgram.weekPlan(restored.currentWeek)
+        val (phaseFocus, layouts) = buildSessionLayoutsForWeek(restored.currentWeek)
+        val boundedLayoutIndex = restored.selectedSessionIndex.coerceIn(0, layouts.lastIndex)
+        val selectedLayout = layouts[boundedLayoutIndex]
         val adjusted = adjustRemaining(
             previousRemaining = restored.remainingTime,
             savedTimestamp = restored.timerLastUpdatedTimestamp,
             running = restored.timerRunning
         )
-        val boundedIndex = restored.currentDrillIndex.coerceIn(0, trainingWeek.drills.lastIndex)
+        val boundedIndex = restored.currentDrillIndex.coerceIn(0, selectedLayout.drills.lastIndex)
+        val phase = phaseFocus.substringBefore(" • ")
+        val focus = phaseFocus.substringAfter(" • ", "")
+
         val state = SessionUiState(
-            drills = trainingWeek.drills,
+            sessionId = restored.savedSessionId,
+            sessionSaved = restored.savedSessionId != null,
+            savedDrillIds = restored.savedDrillIds,
+            drills = selectedLayout.drills,
+            sessionLayouts = layouts,
+            selectedLayoutIndex = boundedLayoutIndex,
             currentDrillIndex = boundedIndex,
             completedDrills = restored.completedDrills,
             currentWeek = restored.currentWeek,
-            phase = trainingWeek.phase,
-            focus = trainingWeek.focus,
+            phase = phase,
+            focus = focus,
             remainingSeconds = adjusted.first,
             timerRunning = adjusted.second,
             sessionStartTimestamp = restored.sessionStartTimestamp,
             resumedSession = true,
-            feedbackMessage = "Resumed active session from week ${restored.currentWeek}"
+            feedbackMessage = "Resumed active session from week ${restored.currentWeek}",
+            saveStatus = if (restored.savedSessionId != null) "Saved" else "Unsaved"
         )
         _uiState.value = state
         if (state.timerRunning) {
@@ -148,35 +189,69 @@ class PracticeSessionViewModel(
         persistence.save(
             PersistedSessionState(
                 currentWeek = current.currentWeek,
+                selectedSessionIndex = current.selectedLayoutIndex,
                 currentDrillIndex = current.currentDrillIndex,
                 remainingTime = current.remainingSeconds,
                 timerRunning = current.timerRunning,
                 timerLastUpdatedTimestamp = System.currentTimeMillis(),
                 sessionStartTimestamp = current.sessionStartTimestamp,
-                completedDrills = current.completedDrills
+                completedDrills = current.completedDrills,
+                savedSessionId = current.sessionId,
+                savedDrillIds = current.savedDrillIds
             )
         )
     }
 
-    private fun ensureSessionSaved() {
+    private suspend fun ensureSessionSavedInternal(): Boolean {
         val current = _uiState.value
-        if (current.sessionSaved) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
-            val definition = SessionDefinition(
-                type = "Week ${current.currentWeek} Session",
-                durationMinutes = 55,
-                drills = current.drills
+        if (current.sessionSaved && current.sessionId != null && current.savedDrillIds.isNotEmpty()) return true
+
+        val existingJob = saveSessionJob
+        if (existingJob != null && existingJob.isActive) {
+            val result = existingJob.await()
+            _uiState.value = _uiState.value.copy(
+                sessionId = result.first,
+                sessionSaved = true,
+                savedDrillIds = result.second,
+                saveStatus = "Saved"
             )
+            persistSessionState()
+            return true
+        }
+
+        _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
+        val activeState = _uiState.value
+        val definition = SessionDefinition(
+            type = activeState.sessionLayouts.getOrNull(activeState.selectedLayoutIndex)?.type
+                ?: "Week ${activeState.currentWeek} Session",
+            durationMinutes = 55,
+            drills = activeState.drills
+        )
+
+        val createdJob = viewModelScope.async {
             val sessionId = repository.saveSession(definition)
             val drillIds = repository.getDrillIdsForSession(sessionId)
-            _uiState.value = _uiState.value.copy(
-                sessionId = sessionId,
-                sessionSaved = true,
-                savedDrillIds = drillIds,
-                saveStatus = "Saved",
-                feedbackMessage = "Session autosaved"
-            )
+            sessionId to drillIds
+        }
+        saveSessionJob = createdJob
+
+        val (sessionId, drillIds) = createdJob.await()
+        saveSessionJob = null
+
+        _uiState.value = _uiState.value.copy(
+            sessionId = sessionId,
+            sessionSaved = true,
+            savedDrillIds = drillIds,
+            saveStatus = "Saved",
+            feedbackMessage = "Session autosaved"
+        )
+        persistSessionState()
+        return true
+    }
+
+    private fun ensureSessionSaved() {
+        viewModelScope.launch {
+            ensureSessionSavedInternal()
         }
     }
 
@@ -201,20 +276,20 @@ class PracticeSessionViewModel(
     }
 
     private fun persistCurrentDrill(advanceAfterSave: Boolean) {
-        val current = _uiState.value
-        if (!current.sessionSaved || current.sessionId == null) {
-            ensureSessionSaved()
-            _uiState.value = current.copy(feedbackMessage = "Preparing session save...")
-            return
-        }
-
-        val drillId = current.savedDrillIds.getOrNull(current.currentDrillIndex)
-        if (drillId == null) {
-            _uiState.value = current.copy(feedbackMessage = "Unable to find saved drill for this index")
-            return
-        }
-
         viewModelScope.launch {
+            val hasSession = ensureSessionSavedInternal()
+            if (!hasSession) {
+                _uiState.value = _uiState.value.copy(feedbackMessage = "Unable to save session")
+                return@launch
+            }
+
+            val current = _uiState.value
+            val drillId = current.savedDrillIds.getOrNull(current.currentDrillIndex)
+            if (drillId == null) {
+                _uiState.value = current.copy(feedbackMessage = "Unable to find saved drill for this index")
+                return@launch
+            }
+
             _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
             repository.saveDrillResult(
                 drillId = drillId,
@@ -236,7 +311,6 @@ class PracticeSessionViewModel(
     }
 
     fun completeCurrentDrill() {
-        ensureSessionSaved()
         persistCurrentDrill(advanceAfterSave = true)
     }
 
@@ -299,8 +373,8 @@ class PracticeSessionViewModel(
 
     fun nextDrill(skipSave: Boolean = false) {
         if (!skipSave) {
-            ensureSessionSaved()
-            persistCurrentDrill(advanceAfterSave = false)
+            persistCurrentDrill(advanceAfterSave = true)
+            return
         }
         timerJob?.cancel()
         val current = _uiState.value
@@ -338,7 +412,18 @@ class PracticeSessionViewModel(
     }
 
     fun selectLayout(index: Int) {
-        _uiState.value = _uiState.value.copy(feedbackMessage = "Weekly progression is fixed. Resume the active session.")
+        val current = _uiState.value
+        if (current.timerRunning) {
+            _uiState.value = current.copy(feedbackMessage = "Pause timer before switching sessions")
+            return
+        }
+        if (current.sessionSaved || current.completedDrills.isNotEmpty()) {
+            _uiState.value = current.copy(feedbackMessage = "Finish current session before switching day")
+            return
+        }
+        if (index == current.selectedLayoutIndex) return
+        createNewWeekSession(selectedLayoutIndex = index)
+        _uiState.value = _uiState.value.copy(feedbackMessage = "Loaded ${_uiState.value.sessionLayouts[index].type}")
     }
 
     fun completeSession() {
