@@ -5,11 +5,13 @@ import android.media.ToneGenerator
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -72,97 +74,138 @@ fun PracticeSessionScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SnackbarHost(hostState = snackbarHostState)
+        item { SnackbarHost(hostState = snackbarHostState) }
 
-        Image(
-            painter = painterResource(id = R.drawable.ic_golf70_logo),
-            contentDescription = "Golf70 logo",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(96.dp)
-        )
-
-        if (state.completed) {
-            Text("Session Complete", style = MaterialTheme.typography.headlineSmall)
-            Text("Week ${state.currentWeek}: ${state.phase}")
-            Text("Great work finishing today's structured training.")
-            return@Column
+        item {
+            Image(
+                painter = painterResource(id = R.drawable.ic_golf70_logo),
+                contentDescription = "Golf70 logo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp)
+            )
         }
 
-        Text("Week ${state.currentWeek} Training", style = MaterialTheme.typography.headlineSmall)
-        Text("${state.phase} • ${state.focus}")
-        Text("Session order: Warm-up → Full Swing → Short Game → Putting → Pressure/Simulation")
+        if (state.completed) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Session Complete", style = MaterialTheme.typography.headlineSmall)
+                    Text("Week ${state.currentWeek}: ${state.phase}")
+                    Text("Great work finishing today's structured training.")
+                }
+            }
+            return@LazyColumn
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Week ${state.currentWeek} Training", style = MaterialTheme.typography.headlineSmall)
+                Text("${state.phase} • ${state.focus}")
+                Text(
+                    "Session order: Warm-up → Full Swing → Short Game → Putting → Pressure/Simulation",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
         val drill = state.currentDrill
         if (drill == null) {
-            Text("No drill loaded.")
-            return@Column
-        }
-
-        Text("Current drill: ${drill.title}")
-        Text(drill.instructions)
-        Text("Next: ${state.nextDrill?.title ?: "Session complete"}")
-        Text("Time remaining: ${formatTime(state.remainingSeconds)}")
-        Text("Completed drills: ${state.completedDrills.size}/${state.drills.size}")
-
-        val badgeColor = if (state.sessionSaved) Color(0xFF2E7D32) else Color(0xFFEF6C00)
-        FilterChip(
-            selected = state.sessionSaved,
-            onClick = {},
-            enabled = false,
-            label = { Text("● ${if (state.sessionSaved) "Saved" else "Unsaved"}") },
-            colors = FilterChipDefaults.filterChipColors(
-                disabledContainerColor = badgeColor.copy(alpha = 0.15f),
-                disabledLabelColor = badgeColor
-            )
-        )
-
-        Text("Drill ${state.currentDrillIndex + 1} of ${state.drills.size}")
-        LinearProgressIndicator(
-            progress = { state.completedDrills.size.toFloat() / state.drills.size.coerceAtLeast(1) },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            Button(onClick = { sessionViewModel.startTimer() }) { Text("Start") }
-            Button(onClick = { if (state.timerRunning) sessionViewModel.pauseTimer() else sessionViewModel.resumeTimer() }) {
-                Text(if (state.timerRunning) "Pause" else "Resume")
+            item { Text("No drill loaded.") }
+        } else {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Current drill: ${drill.title}", style = MaterialTheme.typography.titleMedium)
+                    Text(drill.instructions)
+                    Text("Next: ${state.nextDrill?.title ?: "Session complete"}", style = MaterialTheme.typography.bodySmall)
+                }
             }
-            Button(onClick = { sessionViewModel.previousDrill() }) { Text("Previous") }
-            if (!state.isLastDrill) {
-                Button(onClick = { sessionViewModel.nextDrill() }) { Text("Next") }
+
+            item {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Time remaining: ${formatTime(state.remainingSeconds)}", style = MaterialTheme.typography.titleLarge)
+                    
+                    val badgeColor = if (state.sessionSaved) Color(0xFF2E7D32) else Color(0xFFEF6C00)
+                    FilterChip(
+                        selected = state.sessionSaved,
+                        onClick = {},
+                        enabled = false,
+                        label = { Text("● ${if (state.sessionSaved) "Saved" else "Unsaved"}") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            disabledContainerColor = badgeColor.copy(alpha = 0.15f),
+                            disabledLabelColor = badgeColor
+                        )
+                    )
+                }
             }
-        }
 
-        Text("Quick logging")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { sessionViewModel.logMetric(direction = "left") }) { Text("Left") }
-            Button(onClick = { sessionViewModel.logMetric(direction = "center") }) { Text("Center") }
-            Button(onClick = { sessionViewModel.logMetric(direction = "right") }) { Text("Right") }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { sessionViewModel.logMetric(success = true) }) { Text("Made") }
-            Button(onClick = { sessionViewModel.logMetric(success = false) }) { Text("Missed") }
-            Button(onClick = { sessionViewModel.completeCurrentDrill() }) { Text("Save Drill Now") }
-        }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Drill ${state.currentDrillIndex + 1} of ${state.drills.size}", style = MaterialTheme.typography.labelSmall)
+                    LinearProgressIndicator(
+                        progress = { state.completedDrills.size.toFloat() / state.drills.size.coerceAtLeast(1) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
 
-        Button(
-            onClick = {
-                if (state.isLastDrill) sessionViewModel.completeSession() else sessionViewModel.nextDrill()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (state.isLastDrill) "Complete Session" else "Next")
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(onClick = { sessionViewModel.startTimer() }, modifier = Modifier.weight(1f)) { Text("Start") }
+                    Button(onClick = { if (state.timerRunning) sessionViewModel.pauseTimer() else sessionViewModel.resumeTimer() }, modifier = Modifier.weight(1.5f)) {
+                        Text(if (state.timerRunning) "Pause" else "Resume")
+                    }
+                }
+            }
+
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(onClick = { sessionViewModel.previousDrill() }, modifier = Modifier.weight(1f)) { Text("Back") }
+                    if (!state.isLastDrill) {
+                        Button(onClick = { sessionViewModel.nextDrill() }, modifier = Modifier.weight(1f)) { Text("Next") }
+                    }
+                }
+            }
+
+            item { Text("Quick logging", style = MaterialTheme.typography.titleSmall) }
+            
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { sessionViewModel.logMetric(direction = "left") }, modifier = Modifier.weight(1f)) { Text("Left") }
+                    Button(onClick = { sessionViewModel.logMetric(direction = "center") }, modifier = Modifier.weight(1f)) { Text("Center") }
+                    Button(onClick = { sessionViewModel.logMetric(direction = "right") }, modifier = Modifier.weight(1f)) { Text("Right") }
+                }
+            }
+            
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { sessionViewModel.logMetric(success = true) }, modifier = Modifier.weight(1f)) { Text("Made") }
+                    Button(onClick = { sessionViewModel.logMetric(success = false) }, modifier = Modifier.weight(1f)) { Text("Missed") }
+                }
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        if (state.isLastDrill) sessionViewModel.completeSession() else sessionViewModel.nextDrill()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Text(if (state.isLastDrill) "Complete Session" else "Save & Next Drill")
+                }
+            }
         }
     }
 }

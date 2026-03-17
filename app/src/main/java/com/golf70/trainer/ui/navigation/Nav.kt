@@ -2,6 +2,7 @@ package com.golf70.trainer.ui.navigation
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -95,7 +96,9 @@ fun Golf70NavHost(vm: MainViewModel) {
         NavHost(
             navController = navController,
             startDestination = Golf70Destination.Dashboard.route,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
         ) {
             composable(Golf70Destination.Dashboard.route) {
                 DashboardScreen(

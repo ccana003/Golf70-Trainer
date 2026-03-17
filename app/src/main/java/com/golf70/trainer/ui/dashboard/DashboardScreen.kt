@@ -3,6 +3,7 @@ package com.golf70.trainer.ui.dashboard
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,9 +46,8 @@ fun DashboardScreen(
     val avgSessionMinutes = if (sessionCount == 0) 0 else totalPracticeMinutes / sessionCount
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
@@ -61,12 +61,13 @@ fun DashboardScreen(
             )
             Text("Goal Dashboard", style = MaterialTheme.typography.headlineSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onWeekBack) { Text("Previous Week") }
-                Button(onClick = onWeekForward) { Text("Next Week") }
+                Button(onClick = onWeekBack, modifier = Modifier.weight(1f)) { Text("Previous Week") }
+                Button(onClick = onWeekForward, modifier = Modifier.weight(1f)) { Text("Next Week") }
             }
             Text(
                 weeklyPlan?.weekStart?.format(DateTimeFormatter.ofPattern("'Week of' MMM d")) ?: "Loading week…",
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(vertical = 4.dp)
             )
         }
 
@@ -74,49 +75,79 @@ fun DashboardScreen(
             item {
                 Card {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("This week needs to be accomplished", fontWeight = FontWeight.SemiBold)
+                        Text("This week's goals", fontWeight = FontWeight.SemiBold)
                         weeklyPlan.tasks().forEach { task ->
-                            Text("${task.title}: ${task.completed}/${task.target}")
-                            LinearProgressIndicator(
-                                progress = { task.progress.coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                            Column {
+                                Text("${task.title}: ${task.completed}/${task.target}", style = MaterialTheme.typography.bodySmall)
+                                LinearProgressIndicator(
+                                    progress = { task.progress.coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
-                        Text("Focus note: ${weeklyPlan.notes}")
+                        Text("Focus: ${weeklyPlan.notes}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
         }
 
-        item { GoalRow("Fairway %", stats.fairwayPercent / 100f, "${stats.fairwayPercent.toInt()}%") }
-        item { GoalRow("GIR %", stats.girPercent / 100f, "${stats.girPercent.toInt()}%") }
-        item { GoalRow("Putts / Round", (40f - stats.puttsPerRound).coerceAtLeast(0f) / 40f, "${stats.puttsPerRound.toInt()}") }
-        item { GoalRow("Scoring Avg", (90f - stats.scoringAverage).coerceAtLeast(0f) / 20f, "${stats.scoringAverage}") }
-
         item {
-            Text("Practice Breakdown", style = MaterialTheme.typography.titleMedium)
-            Text("Sessions logged: $sessionCount")
-            Text("Total practice minutes: $totalPracticeMinutes")
-            Text("Avg session length: $avgSessionMinutes min")
-            Text("Total drills assigned: $totalDrills")
-        }
-
-        item { Text("Logged Practice Sessions", style = MaterialTheme.typography.titleMedium) }
-        items(sessions.take(10), key = { it.session.id }) { session ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${session.session.type} • ${session.session.durationMinutes} min")
-                Button(onClick = { onDeleteSession(session.session.id) }) { Text("Remove") }
+            Card {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Overall Performance", style = MaterialTheme.typography.titleMedium)
+                    GoalRow("Fairway %", stats.fairwayPercent / 100f, "${stats.fairwayPercent.toInt()}%")
+                    GoalRow("GIR %", stats.girPercent / 100f, "${stats.girPercent.toInt()}%")
+                    GoalRow("Putts / Round", (40f - stats.puttsPerRound).coerceAtLeast(0f) / 40f, "${stats.puttsPerRound.toInt()}")
+                    GoalRow("Scoring Avg", (90f - stats.scoringAverage).coerceAtLeast(0f) / 20f, "${stats.scoringAverage}")
+                }
             }
         }
 
         item {
-            Text("Scoring Rounds", style = MaterialTheme.typography.titleMedium)
-            Text("Rounds logged: ${rounds.size}")
+            Card {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("Practice Stats", style = MaterialTheme.typography.titleMedium)
+                    Text("Sessions: $sessionCount")
+                    Text("Total minutes: $totalPracticeMinutes")
+                    Text("Avg length: $avgSessionMinutes min")
+                    Text("Total drills: $totalDrills")
+                }
+            }
         }
-        items(rounds.take(10), key = { it.round.id }) { round ->
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("${round.round.course}: ${round.round.score}")
-                Button(onClick = { onDeleteRound(round.round.id) }) { Text("Remove") }
+
+        item { Text("Recent Practice Sessions", style = MaterialTheme.typography.titleMedium) }
+        items(sessions.take(10), key = { "sess_${it.session.id}" }) { session ->
+            Card {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(session.session.type, fontWeight = FontWeight.Bold)
+                        Text("${session.session.durationMinutes} min • ${session.drills.size} drills", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(onClick = { onDeleteSession(session.session.id) }) { Text("Remove") }
+                }
+            }
+        }
+
+        item { Text("Recent Scoring Rounds", style = MaterialTheme.typography.titleMedium) }
+        items(rounds.take(10), key = { "round_${it.round.id}" }) { round ->
+            Card {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(round.round.course, fontWeight = FontWeight.Bold)
+                        Text("Score: ${round.round.score}", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Button(onClick = { onDeleteRound(round.round.id) }) { Text("Remove") }
+                }
             }
         }
     }
@@ -124,8 +155,11 @@ fun DashboardScreen(
 
 @Composable
 private fun GoalRow(title: String, progress: Float, value: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("$title: $value")
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, style = MaterialTheme.typography.bodySmall)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        }
         LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
     }
 }

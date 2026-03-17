@@ -3,8 +3,10 @@ package com.golf70.trainer
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.golf70.trainer.ui.navigation.Dependencies
@@ -18,7 +20,7 @@ class MainActivity : ComponentActivity() {
         val repository = Dependencies.repository(applicationContext)
         setContent {
             Golf70Theme {
-                Surface {
+                Surface(modifier = Modifier.fillMaxSize()) {
                     val vm: MainViewModel = viewModel(factory = MainViewModel.factory(repository))
                     Golf70NavHost(vm = vm)
                 }
@@ -30,5 +32,5 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 private fun PreviewApp() {
-    Golf70Theme { Surface {} }
+    Golf70Theme { Surface(modifier = Modifier.fillMaxSize()) {} }
 }

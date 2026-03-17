@@ -1,13 +1,18 @@
 package com.golf70.trainer.ui.round
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -23,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
@@ -52,82 +58,119 @@ fun RoundTrackerScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        SnackbarHost(hostState = snackbarHostState)
-        Text("Round Tracker", style = MaterialTheme.typography.headlineSmall)
-        OutlinedTextField(value = course, onValueChange = { course = it }, label = { Text("Course") })
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Round Tracker", style = MaterialTheme.typography.headlineSmall)
+                    OutlinedTextField(
+                        value = course,
+                        onValueChange = { course = it },
+                        label = { Text("Course Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { vm.loadCourseLayout(course) }) {
-                Text("Load Saved Layout")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { vm.loadCourseLayout(course) }, modifier = Modifier.weight(1f)) {
+                            Text("Load Layout")
+                        }
+                        Button(onClick = { vm.saveCourseLayout(course) }, modifier = Modifier.weight(1f)) {
+                            Text("Save Layout")
+                        }
+                    }
+                }
             }
-            Button(onClick = { vm.saveCourseLayout(course) }) {
-                Text("Save Layout")
-            }
-        }
 
-        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(holes) { hole ->
+            items(holes, key = { it.holeNumber }) { hole ->
                 HoleRow(hole = hole, onChange = vm::updateHole)
             }
+
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Summary", style = MaterialTheme.typography.titleMedium)
+                    Text("Total Score: ${summary.totalScore}", style = MaterialTheme.typography.titleLarge)
+                    Text("Fairway %: ${summary.fairwayPercentage.toInt()}%  |  GIR %: ${summary.girPercentage.toInt()}%")
+                    Text("Putts / Round: ${summary.puttsPerRound}")
+                    Button(
+                        onClick = { vm.saveRound(course, onRoundSaved) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Save Round")
+                    }
+                }
+            }
         }
 
-        Text("Total Score: ${summary.totalScore}")
-        Text("Fairway %: ${summary.fairwayPercentage.toInt()}  GIR %: ${summary.girPercentage.toInt()}")
-        Text("Putts / Round: ${summary.puttsPerRound}")
-        Button(
-            onClick = { vm.saveRound(course, onRoundSaved) },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Save Round")
-        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
 @Composable
 private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("H${hole.holeNumber}", modifier = Modifier.padding(top = 16.dp))
-        SelectAllNumberField(
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "H${hole.holeNumber}",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.width(32.dp)
+        )
+        
+        CompactNumberField(
             value = hole.par,
             onValueChange = { onChange(hole.copy(par = it)) },
-            label = "Par",
-            modifier = Modifier.weight(1f)
+            label = "Par"
         )
-        SelectAllNumberField(
+        CompactNumberField(
             value = hole.score,
             onValueChange = { onChange(hole.copy(score = it)) },
-            label = "Score",
-            modifier = Modifier.weight(1f)
+            label = "Score"
         )
-        SelectAllNumberField(
+        CompactNumberField(
             value = hole.putts,
             onValueChange = { onChange(hole.copy(putts = it)) },
-            label = "Putts",
-            modifier = Modifier.weight(1f)
+            label = "Putts"
         )
-        Column {
-            Text("FW")
-            Checkbox(checked = hole.fairwayHit, onCheckedChange = { onChange(hole.copy(fairwayHit = it)) })
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("FW", style = MaterialTheme.typography.labelSmall)
+            Checkbox(
+                checked = hole.fairwayHit,
+                onCheckedChange = { onChange(hole.copy(fairwayHit = it)) }
+            )
         }
-        Column {
-            Text("GIR")
-            Checkbox(checked = hole.gir, onCheckedChange = { onChange(hole.copy(gir = it)) })
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("GIR", style = MaterialTheme.typography.labelSmall)
+            Checkbox(
+                checked = hole.gir,
+                onCheckedChange = { onChange(hole.copy(gir = it)) }
+            )
         }
     }
 }
 
 @Composable
-private fun SelectAllNumberField(
+private fun CompactNumberField(
     value: Int,
     onValueChange: (Int) -> Unit,
-    label: String,
-    modifier: Modifier = Modifier
+    label: String
 ) {
     var fieldValue by remember(value) {
         mutableStateOf(TextFieldValue(value.toString()))
@@ -140,12 +183,15 @@ private fun SelectAllNumberField(
             val numeric = it.text.toIntOrNull() ?: return@OutlinedTextField
             onValueChange(numeric)
         },
-        label = { Text(label) },
+        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = modifier.onFocusChanged { focusState ->
-            if (focusState.isFocused) {
-                fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
-            }
-        }
+        modifier = Modifier
+            .width(64.dp)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) {
+                    fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+                }
+            },
+        textStyle = MaterialTheme.typography.bodyMedium
     )
 }

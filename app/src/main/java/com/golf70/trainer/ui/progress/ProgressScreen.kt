@@ -39,7 +39,7 @@ fun ProgressScreen(
 ) {
     val state by vm.uiState.collectAsState()
     val latest = state.weeks.lastOrNull()
-    val previous = state.weeks.dropLast(1).lastOrNull()
+    val previous = if (state.weeks.size > 1) state.weeks[state.weeks.size - 2] else null
 
     LazyColumn(
         modifier = Modifier
@@ -155,7 +155,7 @@ private fun MetricBar(label: String, progress: Float, color: Color) {
             Box(
                 modifier = Modifier
                     .height(8.dp)
-                    .width((280 * progress.coerceIn(0f, 1f)).dp)
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
                     .background(color)
             )
         }
