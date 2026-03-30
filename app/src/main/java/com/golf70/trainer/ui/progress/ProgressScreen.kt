@@ -74,6 +74,18 @@ fun ProgressScreen(
         }
 
         item {
+            if (!state.loading && state.weeks.size > 1) {
+                Text("Week-over-week changes", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+
+        if (!state.loading && state.weeks.size > 1) {
+            items(state.weeks.zipWithNext(), key = { "${it.first.weekStartEpochMillis}_${it.second.weekStartEpochMillis}" }) { pair ->
+                WeekOverWeekRow(previous = pair.first, current = pair.second)
+            }
+        }
+
+        item {
             latest?.let {
                 Text("This week accomplished", style = MaterialTheme.typography.titleMedium)
                 Text("Sessions: ${it.sessions} • Rounds: ${it.rounds} • Minutes: ${it.practiceMinutes}")
@@ -137,6 +149,27 @@ private fun WeeklyTrendRow(week: WeeklyProgress) {
             MetricBar("Putts control", (40f - week.puttsPerRound).coerceAtLeast(0f) / 40f, MaterialTheme.colorScheme.tertiary)
         }
     }
+}
+
+@Composable
+private fun WeekOverWeekRow(previous: WeeklyProgress, current: WeeklyProgress) {
+    Card {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                "${previous.label} → ${current.label}",
+                fontWeight = FontWeight.SemiBold
+            )
+            Text("Fairways: ${previous.fairwayPercent.toInt()}% → ${current.fairwayPercent.toInt()}% (${deltaLabel(current.fairwayPercent - previous.fairwayPercent)})")
+            Text("GIR: ${previous.girPercent.toInt()}% → ${current.girPercent.toInt()}% (${deltaLabel(current.girPercent - previous.girPercent)})")
+            Text("Putts/Round: ${previous.puttsPerRound.toInt()} → ${current.puttsPerRound.toInt()} (${deltaLabel(previous.puttsPerRound - current.puttsPerRound)})")
+            Text("Score Avg: ${previous.scoringAverage.toInt()} → ${current.scoringAverage.toInt()} (${deltaLabel(previous.scoringAverage - current.scoringAverage)})")
+        }
+    }
+}
+
+private fun deltaLabel(value: Float): String {
+    val rounded = value.toInt()
+    return if (rounded >= 0) "+$rounded" else rounded.toString()
 }
 
 @Composable

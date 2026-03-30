@@ -29,6 +29,18 @@ class SessionPersistence(context: Context) {
         return value.takeIf { it > 0 }
     }
 
+    fun saveManualWeekOverride(weekNumber: Int?) {
+        prefs.edit().apply {
+            if (weekNumber == null) remove(KEY_MANUAL_WEEK_OVERRIDE)
+            else putInt(KEY_MANUAL_WEEK_OVERRIDE, weekNumber)
+        }.apply()
+    }
+
+    fun manualWeekOverride(): Int? {
+        val value = prefs.getInt(KEY_MANUAL_WEEK_OVERRIDE, -1)
+        return value.takeIf { it > 0 }
+    }
+
     fun save(state: PersistedSessionState) {
         prefs.edit()
             .putInt(KEY_CURRENT_WEEK, state.currentWeek)
@@ -99,5 +111,6 @@ class SessionPersistence(context: Context) {
         private const val KEY_COMPLETED_DRILLS = "completed_drills"
         private const val KEY_SAVED_SESSION_ID = "saved_session_id"
         private const val KEY_SAVED_DRILL_IDS = "saved_drill_ids"
+        private const val KEY_MANUAL_WEEK_OVERRIDE = "manual_week_override"
     }
 }

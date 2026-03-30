@@ -89,7 +89,9 @@ class PracticeSessionViewModel(
     private fun resolveCurrentProgramWeek(now: Long = System.currentTimeMillis()): Int {
         val programStart = persistence.programStartTimestamp() ?: now.also { persistence.saveProgramStartTimestamp(it) }
         val startDate = Instant.ofEpochMilli(programStart).atZone(ZoneId.systemDefault()).toLocalDate()
-        return TrainingProgram.resolveWeek(programStartDate = startDate, today = LocalDate.now()).weekNumber
+        val calendarWeek = TrainingProgram.resolveWeek(programStartDate = startDate, today = LocalDate.now()).weekNumber
+        val overrideWeek = persistence.manualWeekOverride()
+        return maxOf(calendarWeek, overrideWeek ?: 1)
     }
 
     private fun buildSessionLayoutsForWeek(currentWeek: Int): Pair<String, List<SessionDefinition>> {
@@ -288,38 +290,49 @@ class PracticeSessionViewModel(
         persistSessionState()
     }
 
+    private suspend fun saveCurrentDrillResultIfNeeded(): Boolean {
+        val hasSession = ensureSessionSavedInternal()
+        if (!hasSession) {
+            _uiState.value = _uiState.value.copy(feedbackMessage = "Unable to save session")
+            return false
+        }
+
+        val current = _uiState.value
+        if (current.completedDrills.contains(current.currentDrillIndex)) {
+            return true
+        }
+        val drillId = current.savedDrillIds.getOrNull(current.currentDrillIndex)
+        if (drillId == null) {
+            _uiState.value = current.copy(feedbackMessage = "Unable to find saved drill for this index")
+            return false
+        }
+
+        _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
+        repository.saveDrillResult(
+            drillId = drillId,
+            attempts = current.attempts,
+            successes = current.successes,
+            direction = current.direction,
+            distance = null
+        )
+        _uiState.value = _uiState.value.copy(
+            completedDrills = _uiState.value.completedDrills + current.currentDrillIndex,
+            feedbackMessage = "Drill saved",
+            saveStatus = "Saved"
+        )
+        persistSessionState()
+        return true
+    }
+
     private fun persistCurrentDrill(advanceAfterSave: Boolean) {
         viewModelScope.launch {
-            val hasSession = ensureSessionSavedInternal()
-            if (!hasSession) {
-                _uiState.value = _uiState.value.copy(feedbackMessage = "Unable to save session")
+            val saved = saveCurrentDrillResultIfNeeded()
+            if (!saved) {
                 return@launch
             }
-
-            val current = _uiState.value
-            val drillId = current.savedDrillIds.getOrNull(current.currentDrillIndex)
-            if (drillId == null) {
-                _uiState.value = current.copy(feedbackMessage = "Unable to find saved drill for this index")
-                return@launch
-            }
-
-            _uiState.value = _uiState.value.copy(saveStatus = "Saving…")
-            repository.saveDrillResult(
-                drillId = drillId,
-                attempts = current.attempts,
-                successes = current.successes,
-                direction = current.direction,
-                distance = null
-            )
-            _uiState.value = _uiState.value.copy(
-                completedDrills = _uiState.value.completedDrills + current.currentDrillIndex,
-                feedbackMessage = "Drill saved",
-                saveStatus = "Saved"
-            )
             if (advanceAfterSave) {
                 nextDrill(skipSave = true)
             }
-            persistSessionState()
         }
     }
 
@@ -440,15 +453,30 @@ class PracticeSessionViewModel(
     }
 
     fun completeSession() {
+        viewModelScope.launch {
+            timerJob?.cancel()
+            val saved = saveCurrentDrillResultIfNeeded()
+            if (!saved) return@launch
+
+            _uiState.value = _uiState.value.copy(
+                completed = true,
+                timerRunning = false,
+                feedbackMessage = "Session complete. Great work.",
+                saveStatus = "Saved"
+            )
+            persistence.clearSession()
+        }
+    }
+
+    fun advanceToNextWeek() {
         timerJob?.cancel()
-        ensureSessionSaved()
-        _uiState.value = _uiState.value.copy(
-            completed = true,
-            timerRunning = false,
-            feedbackMessage = "Session complete. Great work.",
-            saveStatus = "Saved"
-        )
+        val targetWeek = (_uiState.value.currentWeek + 1).coerceAtLeast(1)
+        persistence.saveManualWeekOverride(targetWeek)
         persistence.clearSession()
+        createNewWeekSession()
+        _uiState.value = _uiState.value.copy(
+            feedbackMessage = "Moved to Week $targetWeek"
+        )
     }
 
     fun clearFeedback() {

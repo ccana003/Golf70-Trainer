@@ -119,6 +119,12 @@ fun PracticeSessionScreen(
                         )
                     }
                 }
+                Button(
+                    onClick = { sessionViewModel.advanceToNextWeek() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Move to Next Week")
+                }
             }
         }
 
