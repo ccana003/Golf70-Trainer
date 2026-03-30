@@ -1,6 +1,7 @@
 package com.golf70.trainer.session
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -60,6 +61,7 @@ class PracticeSessionViewModel(
 
     private var timerJob: Job? = null
     private var saveSessionJob: Deferred<Pair<Long, List<Long>>>? = null
+    private var timerEndsAtElapsedRealtime: Long? = null
 
     init {
         loadTodaySession()
@@ -177,6 +179,7 @@ class PracticeSessionViewModel(
         )
         _uiState.value = state
         if (state.timerRunning) {
+            timerEndsAtElapsedRealtime = SystemClock.elapsedRealtime() + state.remainingSeconds * 1_000L
             runTimer()
         }
         if (restored.timerRunning && adjusted.first == 0) {
@@ -199,7 +202,7 @@ class PracticeSessionViewModel(
     }
 
     fun persistSessionState() {
-        val current = _uiState.value
+        val current = syncTimerStateFromClock()
         if (current.completed || current.drills.isEmpty()) return
         persistence.save(
             PersistedSessionState(
@@ -343,6 +346,7 @@ class PracticeSessionViewModel(
     fun startTimer() {
         val current = _uiState.value
         if (current.remainingSeconds <= 0) return
+        timerEndsAtElapsedRealtime = SystemClock.elapsedRealtime() + current.remainingSeconds * 1_000L
         _uiState.value = current.copy(timerRunning = true)
         runTimer()
         persistSessionState()
@@ -350,24 +354,27 @@ class PracticeSessionViewModel(
 
     fun pauseTimer() {
         timerJob?.cancel()
-        _uiState.value = _uiState.value.copy(timerRunning = false)
+        val current = syncTimerStateFromClock()
+        timerEndsAtElapsedRealtime = null
+        _uiState.value = current.copy(timerRunning = false)
         persistSessionState()
     }
 
     fun resumeTimer() {
         val current = _uiState.value
-        val adjusted = adjustRemaining(current.remainingSeconds, System.currentTimeMillis(), current.timerRunning)
-        if (adjusted.first <= 0) {
+        if (current.remainingSeconds <= 0) {
             onTimerFinished()
             return
         }
-        _uiState.value = current.copy(remainingSeconds = adjusted.first, timerRunning = true)
+        timerEndsAtElapsedRealtime = SystemClock.elapsedRealtime() + current.remainingSeconds * 1_000L
+        _uiState.value = current.copy(timerRunning = true)
         runTimer()
         persistSessionState()
     }
 
     fun resetTimerForCurrentDrill() {
         timerJob?.cancel()
+        timerEndsAtElapsedRealtime = null
         val duration = _uiState.value.currentDrill?.timerSeconds ?: 0
         _uiState.value = _uiState.value.copy(remainingSeconds = duration, timerRunning = false)
         persistSessionState()
@@ -376,10 +383,10 @@ class PracticeSessionViewModel(
     private fun runTimer() {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
-            while (_uiState.value.timerRunning && _uiState.value.remainingSeconds > 0) {
-                delay(1_000)
-                _uiState.value = _uiState.value.copy(remainingSeconds = (_uiState.value.remainingSeconds - 1).coerceAtLeast(0))
-                persistSessionState()
+            while (_uiState.value.timerRunning) {
+                val current = syncTimerStateFromClock()
+                if (current.remainingSeconds <= 0) break
+                delay(250)
             }
             if (_uiState.value.timerRunning && _uiState.value.remainingSeconds == 0) {
                 onTimerFinished()
@@ -387,8 +394,21 @@ class PracticeSessionViewModel(
         }
     }
 
+    private fun syncTimerStateFromClock(): SessionUiState {
+        val current = _uiState.value
+        if (!current.timerRunning) return current
+        val endsAt = timerEndsAtElapsedRealtime ?: return current
+        val millisRemaining = (endsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+        val remaining = ((millisRemaining + 999L) / 1_000L).toInt()
+        if (remaining == current.remainingSeconds) return current
+        val updated = current.copy(remainingSeconds = remaining)
+        _uiState.value = updated
+        return updated
+    }
+
     private fun onTimerFinished() {
         timerJob?.cancel()
+        timerEndsAtElapsedRealtime = null
         _uiState.value = _uiState.value.copy(timerRunning = false, remainingSeconds = 0, feedbackMessage = "Timer complete")
         if (_uiState.value.isLastDrill) {
             persistSessionState()
@@ -403,6 +423,7 @@ class PracticeSessionViewModel(
             return
         }
         timerJob?.cancel()
+        timerEndsAtElapsedRealtime = null
         val current = _uiState.value
         val newIndex = (current.currentDrillIndex + 1).coerceAtMost(current.drills.lastIndex)
         val newDrillDuration = current.drills.getOrNull(newIndex)?.timerSeconds ?: 0
@@ -422,6 +443,7 @@ class PracticeSessionViewModel(
 
     fun previousDrill() {
         timerJob?.cancel()
+        timerEndsAtElapsedRealtime = null
         val current = _uiState.value
         val newIndex = (current.currentDrillIndex - 1).coerceAtLeast(0)
         val updated = current.copy(
@@ -455,6 +477,7 @@ class PracticeSessionViewModel(
     fun completeSession() {
         viewModelScope.launch {
             timerJob?.cancel()
+            timerEndsAtElapsedRealtime = null
             val saved = saveCurrentDrillResultIfNeeded()
             if (!saved) return@launch
 
@@ -470,6 +493,7 @@ class PracticeSessionViewModel(
 
     fun advanceToNextWeek() {
         timerJob?.cancel()
+        timerEndsAtElapsedRealtime = null
         val targetWeek = (_uiState.value.currentWeek + 1).coerceAtLeast(1)
         persistence.saveManualWeekOverride(targetWeek)
         persistence.clearSession()

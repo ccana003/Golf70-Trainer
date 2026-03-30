@@ -22,6 +22,12 @@ class RoundTrackerViewModel(
 
     private val _saveMessage = MutableStateFlow<String?>(null)
     val saveMessage: StateFlow<String?> = _saveMessage.asStateFlow()
+    private val _savedLayoutNames = MutableStateFlow<List<String>>(emptyList())
+    val savedLayoutNames: StateFlow<List<String>> = _savedLayoutNames.asStateFlow()
+
+    init {
+        refreshSavedLayoutNames()
+    }
 
     fun updateHole(input: HoleInput) {
         _holes.value = _holes.value.map { if (it.holeNumber == input.holeNumber) input else it }
@@ -46,6 +52,7 @@ class RoundTrackerViewModel(
         }
         viewModelScope.launch {
             repository.saveCourseLayout(normalized, _holes.value.map { it.par })
+            refreshSavedLayoutNames()
             _saveMessage.value = "Saved layout for $normalized"
         }
     }
@@ -71,6 +78,12 @@ class RoundTrackerViewModel(
 
     fun clearSaveMessage() {
         _saveMessage.value = null
+    }
+
+    fun refreshSavedLayoutNames() {
+        viewModelScope.launch {
+            _savedLayoutNames.value = repository.getSavedCourseLayoutNames()
+        }
     }
 
     companion object {

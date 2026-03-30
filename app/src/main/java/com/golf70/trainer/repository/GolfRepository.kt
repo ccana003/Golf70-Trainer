@@ -164,6 +164,10 @@ class GolfRepository(
         return pars.takeIf { it.size == 18 }
     }
 
+    suspend fun getSavedCourseLayoutNames(): List<String> {
+        return db.courseLayoutDao().getCourseNames()
+    }
+
     suspend fun getWeeklyPlanWithProgress(weekOffset: Int): WeeklyPlan {
         val weekStart = LocalDate.now().plusWeeks(weekOffset.toLong()).with(java.time.DayOfWeek.MONDAY)
         val weekStartEpochDay = weekStart.toEpochDay()
