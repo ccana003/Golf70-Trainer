@@ -166,6 +166,9 @@ interface CourseLayoutDao {
 
     @Query("SELECT * FROM course_layouts WHERE courseName = :courseName LIMIT 1")
     suspend fun getLayout(courseName: String): CourseLayoutEntity?
+
+    @Query("SELECT courseName FROM course_layouts ORDER BY courseName COLLATE NOCASE ASC")
+    suspend fun getCourseNames(): List<String>
 }
 
 @Dao

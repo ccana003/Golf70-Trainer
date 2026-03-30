@@ -16,6 +16,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
@@ -40,13 +45,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.golf70.trainer.domain.HoleInput
 import com.golf70.trainer.ui.navigation.Dependencies
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RoundTrackerScreen(
     onRoundSaved: () -> Unit = {},
     vm: RoundTrackerViewModel = viewModel(factory = RoundTrackerViewModel.factory(Dependencies.repository(LocalContext.current)))
 ) {
     var course by remember { mutableStateOf("Home Course") }
+    var selectedLayoutName by remember { mutableStateOf<String?>(null) }
+    var layoutDropdownExpanded by remember { mutableStateOf(false) }
     val holes by vm.holes.collectAsState()
+    val savedLayoutNames by vm.savedLayoutNames.collectAsState()
     val summary = vm.summary()
     val saveMessage by vm.saveMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -74,8 +83,43 @@ fun RoundTrackerScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    ExposedDropdownMenuBox(
+                        expanded = layoutDropdownExpanded,
+                        onExpandedChange = { layoutDropdownExpanded = !layoutDropdownExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedLayoutName ?: "",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Saved Layouts") },
+                            placeholder = { Text("Select a saved layout") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = layoutDropdownExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = layoutDropdownExpanded,
+                            onDismissRequest = { layoutDropdownExpanded = false }
+                        ) {
+                            savedLayoutNames.forEach { name ->
+                                DropdownMenuItem(
+                                    text = { Text(name) },
+                                    onClick = {
+                                        selectedLayoutName = name
+                                        course = name
+                                        layoutDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { vm.loadCourseLayout(course) }, modifier = Modifier.weight(1f)) {
+                        Button(
+                            onClick = { vm.loadCourseLayout(selectedLayoutName ?: course) },
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Text("Load Layout")
                         }
                         Button(onClick = { vm.saveCourseLayout(course) }, modifier = Modifier.weight(1f)) {
