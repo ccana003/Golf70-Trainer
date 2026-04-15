@@ -53,9 +53,12 @@ fun RoundTrackerScreen(
 ) {
     var selectedCourseName by remember { mutableStateOf(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
     var courseDropdownExpanded by remember { mutableStateOf(false) }
+    var holeRangeDropdownExpanded by remember { mutableStateOf(false) }
     val holes by vm.holes.collectAsState()
+    val selectedRange by vm.selectedRange.collectAsState()
     val savedLayoutNames by vm.savedLayoutNames.collectAsState()
-    val summary = vm.summary()
+    val displayedHoles = remember(holes, selectedRange) { vm.displayedHoles() }
+    val summary = remember(displayedHoles) { vm.summary() }
     val saveMessage by vm.saveMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -106,6 +109,36 @@ fun RoundTrackerScreen(
                         }
                     }
 
+                    ExposedDropdownMenuBox(
+                        expanded = holeRangeDropdownExpanded,
+                        onExpandedChange = { holeRangeDropdownExpanded = !holeRangeDropdownExpanded }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedRange.label,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Holes to Play") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = holeRangeDropdownExpanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = holeRangeDropdownExpanded,
+                            onDismissRequest = { holeRangeDropdownExpanded = false }
+                        ) {
+                            RoundTrackerViewModel.HoleRange.entries.forEach { range ->
+                                DropdownMenuItem(
+                                    text = { Text(range.label) },
+                                    onClick = {
+                                        vm.updateSelectedRange(range)
+                                        holeRangeDropdownExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = { vm.loadCourseLayout(selectedCourseName) },
@@ -120,7 +153,7 @@ fun RoundTrackerScreen(
                 }
             }
 
-            items(holes, key = { it.holeNumber }) { hole ->
+            items(displayedHoles, key = { it.holeNumber }) { hole ->
                 HoleRow(hole = hole, onChange = vm::updateHole)
             }
 
@@ -132,7 +165,7 @@ fun RoundTrackerScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Summary", style = MaterialTheme.typography.titleMedium)
-                    Text("Total Score: ${summary.totalScore}", style = MaterialTheme.typography.titleLarge)
+                    Text("${selectedRange.label} Score: ${summary.totalScore}", style = MaterialTheme.typography.titleLarge)
                     Text("Fairway %: ${summary.fairwayPercentage.toInt()}%  |  GIR %: ${summary.girPercentage.toInt()}%")
                     Text("Putts / Round: ${summary.puttsPerRound}")
                     Button(

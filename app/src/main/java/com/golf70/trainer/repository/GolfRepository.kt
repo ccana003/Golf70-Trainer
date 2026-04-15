@@ -33,15 +33,15 @@ class GolfRepository(
         db.analyticsDao().observeFairwaysHit(),
         db.analyticsDao().observeTotalHoles(),
         db.analyticsDao().observeGirHit(),
-        db.analyticsDao().observeAveragePuttsPerHole(),
+        db.analyticsDao().observeAveragePuttsPerRound(),
         db.roundDao().observeScoringAverage()
-    ) { fairways, holes, gir, avgPuttsHole, scoreAvg ->
+    ) { fairways, holes, gir, avgPuttsRound, scoreAvg ->
         val fairwayPct = if (holes == 0) 0f else fairways * 100f / holes
         val girPct = if (holes == 0) 0f else gir * 100f / holes
         DashboardStats(
             fairwayPercent = fairwayPct,
             girPercent = girPct,
-            puttsPerRound = (avgPuttsHole ?: 0f) * 18,
+            puttsPerRound = avgPuttsRound ?: 0f,
             scoringAverage = scoreAvg ?: 0f
         )
     }
@@ -214,7 +214,7 @@ class GolfRepository(
             val holes = db.analyticsDao().totalHolesBetween(weekRange.first, weekRange.second)
             val fairways = db.analyticsDao().fairwaysBetween(weekRange.first, weekRange.second)
             val gir = db.analyticsDao().girBetween(weekRange.first, weekRange.second)
-            val avgPutts = db.analyticsDao().averagePuttsPerHoleBetween(weekRange.first, weekRange.second)
+            val avgPutts = db.analyticsDao().averagePuttsPerRoundBetween(weekRange.first, weekRange.second)
             val avgScore = db.roundDao().averageScoreBetween(weekRange.first, weekRange.second)
             val sessions = db.practiceSessionDao().countSessionsBetween(weekRange.first, weekRange.second)
             val rounds = db.roundDao().countRoundsBetween(weekRange.first, weekRange.second)
@@ -228,7 +228,7 @@ class GolfRepository(
                 practiceMinutes = minutes,
                 fairwayPercent = if (holes == 0) 0f else fairways * 100f / holes,
                 girPercent = if (holes == 0) 0f else gir * 100f / holes,
-                puttsPerRound = (avgPutts ?: 0f) * 18,
+                puttsPerRound = avgPutts ?: 0f,
                 scoringAverage = avgScore ?: 0f
             )
         }
