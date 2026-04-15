@@ -25,6 +25,9 @@ class RoundTrackerViewModel(
     private val _savedLayoutNames = MutableStateFlow<List<String>>(emptyList())
     val savedLayoutNames: StateFlow<List<String>> = _savedLayoutNames.asStateFlow()
 
+    private val _selectedRange = MutableStateFlow(HoleRange.WHOLE_18)
+    val selectedRange: StateFlow<HoleRange> = _selectedRange.asStateFlow()
+
     init {
         seedAlwaysAvailableCourseLayout()
     }
@@ -39,17 +42,33 @@ class RoundTrackerViewModel(
         }
     }
 
+    fun updateSelectedRange(range: HoleRange) {
+        _selectedRange.value = range
+    }
+
+    fun displayedHoles(): List<HoleInput> {
+        val range = _selectedRange.value
+        return _holes.value.filter { it.holeNumber in range.holes }
+    }
+
     fun updateHole(input: HoleInput) {
         _holes.value = _holes.value.map { if (it.holeNumber == input.holeNumber) input else it }
     }
 
-    fun summary(): RoundSummary = StatsCalculator.summarizeRound(_holes.value)
+    fun summary(): RoundSummary = StatsCalculator.summarizeRound(displayedHoles())
 
     fun saveRound(course: String, onSaved: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.saveRound(course, _holes.value)
+            val holesToSave = displayedHoles()
+            repository.saveRound(course, holesToSave)
             _saveMessage.value = "Round saved successfully"
-            _holes.value = (1..18).map { hole -> HoleInput(hole, 4, 0, false, false, 0, 0) }
+            _holes.value = _holes.value.map { hole ->
+                if (hole.holeNumber in _selectedRange.value.holes) {
+                    hole.copy(score = 0, fairwayHit = false, gir = false, putts = 0, penalty = 0)
+                } else {
+                    hole
+                }
+            }
             onSaved()
         }
     }
@@ -96,8 +115,14 @@ class RoundTrackerViewModel(
         }
     }
 
+    enum class HoleRange(val label: String, val holes: IntRange) {
+        FRONT_9("Front 9", 1..9),
+        BACK_9("Back 9", 10..18),
+        WHOLE_18("Whole 18", 1..18)
+    }
+
     companion object {
-        const val ALWAYS_AVAILABLE_COURSE_NAME = "Group Home Course"
+        const val ALWAYS_AVAILABLE_COURSE_NAME = "Dolphin/Marlin"
         val ALWAYS_AVAILABLE_COURSE_PARS = listOf(
             5, 3, 4, 4, 4, 4, 5, 3, 4,
             5, 5, 4, 3, 5, 4, 4, 3, 3

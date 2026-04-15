@@ -119,8 +119,16 @@ interface AnalyticsDao {
     @Query("SELECT COUNT(*) FROM hole_stats WHERE gir = 1")
     fun observeGirHit(): Flow<Int>
 
-    @Query("SELECT AVG(putts) FROM hole_stats")
-    fun observeAveragePuttsPerHole(): Flow<Float?>
+    @Query(
+        """
+        SELECT AVG(round_putts) FROM (
+            SELECT SUM(putts) AS round_putts
+            FROM hole_stats
+            GROUP BY round_id
+        )
+        """
+    )
+    fun observeAveragePuttsPerRound(): Flow<Float?>
 
     @Query(
         """
@@ -151,12 +159,16 @@ interface AnalyticsDao {
 
     @Query(
         """
-        SELECT AVG(putts) FROM hole_stats
-        INNER JOIN rounds ON rounds.id = hole_stats.round_id
-        WHERE rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+        SELECT AVG(round_putts) FROM (
+            SELECT SUM(hole_stats.putts) AS round_putts
+            FROM hole_stats
+            INNER JOIN rounds ON rounds.id = hole_stats.round_id
+            WHERE rounds.dateEpochMillis BETWEEN :startInclusive AND :endExclusive
+            GROUP BY hole_stats.round_id
+        )
         """
     )
-    suspend fun averagePuttsPerHoleBetween(startInclusive: Long, endExclusive: Long): Float?
+    suspend fun averagePuttsPerRoundBetween(startInclusive: Long, endExclusive: Long): Float?
 }
 
 @Dao
