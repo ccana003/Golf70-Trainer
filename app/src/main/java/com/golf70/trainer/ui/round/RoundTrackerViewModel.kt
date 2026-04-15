@@ -26,7 +26,17 @@ class RoundTrackerViewModel(
     val savedLayoutNames: StateFlow<List<String>> = _savedLayoutNames.asStateFlow()
 
     init {
-        refreshSavedLayoutNames()
+        seedAlwaysAvailableCourseLayout()
+    }
+
+    private fun seedAlwaysAvailableCourseLayout() {
+        viewModelScope.launch {
+            repository.saveCourseLayout(ALWAYS_AVAILABLE_COURSE_NAME, ALWAYS_AVAILABLE_COURSE_PARS)
+            _holes.value = _holes.value.mapIndexed { index, hole ->
+                hole.copy(par = ALWAYS_AVAILABLE_COURSE_PARS[index])
+            }
+            refreshSavedLayoutNames()
+        }
     }
 
     fun updateHole(input: HoleInput) {
@@ -87,6 +97,12 @@ class RoundTrackerViewModel(
     }
 
     companion object {
+        const val ALWAYS_AVAILABLE_COURSE_NAME = "Group Home Course"
+        val ALWAYS_AVAILABLE_COURSE_PARS = listOf(
+            5, 3, 4, 4, 4, 4, 5, 3, 4,
+            5, 5, 4, 3, 5, 4, 4, 3, 3
+        )
+
         fun factory(repository: GolfRepository): ViewModelProvider.Factory =
             object : ViewModelProvider.Factory {
                 override fun <T : ViewModel> create(modelClass: Class<T>): T {
