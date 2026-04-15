@@ -51,8 +51,8 @@ fun RoundTrackerScreen(
     onRoundSaved: () -> Unit = {},
     vm: RoundTrackerViewModel = viewModel(factory = RoundTrackerViewModel.factory(Dependencies.repository(LocalContext.current)))
 ) {
-    var course by remember { mutableStateOf("Home Course") }
-    var selectedLayoutName by remember { mutableStateOf<String?>(null) }
+    var course by remember { mutableStateOf(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
+    var selectedLayoutName by remember { mutableStateOf<String?>(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
     var layoutDropdownExpanded by remember { mutableStateOf(false) }
     val holes by vm.holes.collectAsState()
     val savedLayoutNames by vm.savedLayoutNames.collectAsState()
