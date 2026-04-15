@@ -16,7 +16,7 @@ class RoundTrackerViewModel(
     private val repository: GolfRepository
 ) : ViewModel() {
     private val _holes = MutableStateFlow((1..18).map { hole ->
-        HoleInput(hole, 4, 4, false, false, 2, 0)
+        HoleInput(hole, 4, 0, false, false, 0, 0)
     })
     val holes: StateFlow<List<HoleInput>> = _holes.asStateFlow()
 
@@ -49,7 +49,7 @@ class RoundTrackerViewModel(
         viewModelScope.launch {
             repository.saveRound(course, _holes.value)
             _saveMessage.value = "Round saved successfully"
-            _holes.value = (1..18).map { hole -> HoleInput(hole, 4, 4, false, false, 2, 0) }
+            _holes.value = (1..18).map { hole -> HoleInput(hole, 4, 0, false, false, 0, 0) }
             onSaved()
         }
     }

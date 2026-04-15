@@ -51,9 +51,8 @@ fun RoundTrackerScreen(
     onRoundSaved: () -> Unit = {},
     vm: RoundTrackerViewModel = viewModel(factory = RoundTrackerViewModel.factory(Dependencies.repository(LocalContext.current)))
 ) {
-    var course by remember { mutableStateOf(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
-    var selectedLayoutName by remember { mutableStateOf<String?>(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
-    var layoutDropdownExpanded by remember { mutableStateOf(false) }
+    var selectedCourseName by remember { mutableStateOf(RoundTrackerViewModel.ALWAYS_AVAILABLE_COURSE_NAME) }
+    var courseDropdownExpanded by remember { mutableStateOf(false) }
     val holes by vm.holes.collectAsState()
     val savedLayoutNames by vm.savedLayoutNames.collectAsState()
     val summary = vm.summary()
@@ -76,39 +75,31 @@ fun RoundTrackerScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Round Tracker", style = MaterialTheme.typography.headlineSmall)
-                    OutlinedTextField(
-                        value = course,
-                        onValueChange = { course = it },
-                        label = { Text("Course Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
                     ExposedDropdownMenuBox(
-                        expanded = layoutDropdownExpanded,
-                        onExpandedChange = { layoutDropdownExpanded = !layoutDropdownExpanded }
+                        expanded = courseDropdownExpanded,
+                        onExpandedChange = { courseDropdownExpanded = !courseDropdownExpanded }
                     ) {
                         OutlinedTextField(
-                            value = selectedLayoutName ?: "",
+                            value = selectedCourseName,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Saved Layouts") },
-                            placeholder = { Text("Select a saved layout") },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = layoutDropdownExpanded) },
+                            label = { Text("Course Name") },
+                            placeholder = { Text("Select a course") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = courseDropdownExpanded) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor()
                         )
                         ExposedDropdownMenu(
-                            expanded = layoutDropdownExpanded,
-                            onDismissRequest = { layoutDropdownExpanded = false }
+                            expanded = courseDropdownExpanded,
+                            onDismissRequest = { courseDropdownExpanded = false }
                         ) {
                             savedLayoutNames.forEach { name ->
                                 DropdownMenuItem(
                                     text = { Text(name) },
                                     onClick = {
-                                        selectedLayoutName = name
-                                        course = name
-                                        layoutDropdownExpanded = false
+                                        selectedCourseName = name
+                                        courseDropdownExpanded = false
                                     }
                                 )
                             }
@@ -117,12 +108,12 @@ fun RoundTrackerScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
-                            onClick = { vm.loadCourseLayout(selectedLayoutName ?: course) },
+                            onClick = { vm.loadCourseLayout(selectedCourseName) },
                             modifier = Modifier.weight(1f)
                         ) {
                             Text("Load Layout")
                         }
-                        Button(onClick = { vm.saveCourseLayout(course) }, modifier = Modifier.weight(1f)) {
+                        Button(onClick = { vm.saveCourseLayout(selectedCourseName) }, modifier = Modifier.weight(1f)) {
                             Text("Save Layout")
                         }
                     }
@@ -145,7 +136,7 @@ fun RoundTrackerScreen(
                     Text("Fairway %: ${summary.fairwayPercentage.toInt()}%  |  GIR %: ${summary.girPercentage.toInt()}%")
                     Text("Putts / Round: ${summary.puttsPerRound}")
                     Button(
-                        onClick = { vm.saveRound(course, onRoundSaved) },
+                        onClick = { vm.saveRound(selectedCourseName, onRoundSaved) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Save Round")
@@ -185,12 +176,14 @@ private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
         CompactNumberField(
             value = hole.score,
             onValueChange = { onChange(hole.copy(score = it)) },
-            label = "Score"
+            label = "Score",
+            showBlankWhenZero = true
         )
         CompactNumberField(
             value = hole.putts,
             onValueChange = { onChange(hole.copy(putts = it)) },
-            label = "Putts"
+            label = "Putts",
+            showBlankWhenZero = true
         )
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -214,16 +207,22 @@ private fun HoleRow(hole: HoleInput, onChange: (HoleInput) -> Unit) {
 private fun CompactNumberField(
     value: Int,
     onValueChange: (Int) -> Unit,
-    label: String
+    label: String,
+    showBlankWhenZero: Boolean = false
 ) {
     var fieldValue by remember(value) {
-        mutableStateOf(TextFieldValue(value.toString()))
+        val initialText = if (showBlankWhenZero && value == 0) "" else value.toString()
+        mutableStateOf(TextFieldValue(initialText))
     }
 
     OutlinedTextField(
         value = fieldValue,
         onValueChange = {
             fieldValue = it
+            if (it.text.isBlank()) {
+                onValueChange(0)
+                return@OutlinedTextField
+            }
             val numeric = it.text.toIntOrNull() ?: return@OutlinedTextField
             onValueChange(numeric)
         },
