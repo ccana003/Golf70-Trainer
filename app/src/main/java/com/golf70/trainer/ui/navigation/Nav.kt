@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -35,11 +36,13 @@ import com.golf70.trainer.ui.dashboard.DashboardScreen
 import com.golf70.trainer.ui.progress.ProgressScreen
 import com.golf70.trainer.ui.round.RoundTrackerScreen
 import com.golf70.trainer.ui.session.PracticeSessionScreen
+import com.golf70.trainer.ui.swing.SwingAnalysisScreen
 
 enum class Golf70Destination(val route: String, val label: String) {
     Dashboard("dashboard", "Dashboard"),
     Session("session", "Start Session"),
     Round("round", "Log Round"),
+    Swing("swing", "Swing"),
     Progress("progress", "Progress")
 }
 
@@ -82,6 +85,7 @@ fun Golf70NavHost(vm: MainViewModel) {
                                     Golf70Destination.Dashboard -> Icons.Default.Home
                                     Golf70Destination.Session -> Icons.Default.PlayArrow
                                     Golf70Destination.Round -> Icons.Default.Add
+                                    Golf70Destination.Swing -> Icons.Default.Videocam
                                     Golf70Destination.Progress -> Icons.Default.DateRange
                                 },
                                 contentDescription = item.label
@@ -117,6 +121,9 @@ fun Golf70NavHost(vm: MainViewModel) {
             }
             composable(Golf70Destination.Round.route) {
                 RoundTrackerScreen(onRoundSaved = { navController.navigate(Golf70Destination.Dashboard.route) })
+            }
+            composable(Golf70Destination.Swing.route) {
+                SwingAnalysisScreen()
             }
             composable(Golf70Destination.Progress.route) {
                 ProgressScreen(stats = dashboard)
