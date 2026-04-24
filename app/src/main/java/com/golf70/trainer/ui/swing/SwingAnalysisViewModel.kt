@@ -35,10 +35,13 @@ data class SwingAnalysisUiState(
     val videoUri: Uri? = null,
     val isPlaying: Boolean = false,
     val speed: Float = 1f,
+    val currentPositionMs: Long = 0L,
+    val durationMs: Long = 0L,
     val setupType: CameraSetupType = CameraSetupType.DOWN_THE_LINE,
     val baseline: SwingLine? = null,
     val swingLines: List<SwingLine> = emptyList(),
-    val isDrawingSwingPath: Boolean = false
+    val isDrawingSwingPath: Boolean = false,
+    val isScrubGestureEnabled: Boolean = false
 )
 
 class SwingAnalysisViewModel : ViewModel() {
@@ -46,7 +49,9 @@ class SwingAnalysisViewModel : ViewModel() {
     val uiState: StateFlow<SwingAnalysisUiState> = _uiState
 
     fun setVideo(uri: Uri) {
-        _uiState.update { it.copy(videoUri = uri, isPlaying = false) }
+        _uiState.update {
+            it.copy(videoUri = uri, isPlaying = false, currentPositionMs = 0L, durationMs = 0L)
+        }
     }
 
     fun setSetupType(type: CameraSetupType) {
@@ -65,6 +70,10 @@ class SwingAnalysisViewModel : ViewModel() {
         _uiState.update { it.copy(isDrawingSwingPath = !it.isDrawingSwingPath) }
     }
 
+    fun toggleGestureMode() {
+        _uiState.update { it.copy(isScrubGestureEnabled = !it.isScrubGestureEnabled) }
+    }
+
     fun setBaseline(start: Offset, end: Offset) {
         _uiState.update { it.copy(baseline = SwingLine(start, end)) }
     }
@@ -77,5 +86,14 @@ class SwingAnalysisViewModel : ViewModel() {
 
     fun clearOverlays() {
         _uiState.update { it.copy(baseline = null, swingLines = emptyList()) }
+    }
+
+    fun updatePlaybackPosition(positionMs: Long, durationMs: Long) {
+        _uiState.update {
+            it.copy(
+                currentPositionMs = positionMs.coerceAtLeast(0L),
+                durationMs = durationMs.coerceAtLeast(0L)
+            )
+        }
     }
 }
