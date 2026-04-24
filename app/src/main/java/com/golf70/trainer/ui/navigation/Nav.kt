@@ -39,9 +39,9 @@ import com.golf70.trainer.ui.session.PracticeSessionScreen
 import com.golf70.trainer.ui.swing.SwingAnalysisScreen
 
 enum class Golf70Destination(val route: String, val label: String) {
-    Dashboard("dashboard", "Dashboard"),
-    Session("session", "Start Session"),
-    Round("round", "Log Round"),
+    Dashboard("dashboard", "Home"),
+    Session("session", "Session"),
+    Round("round", "Round"),
     Swing("swing", "Swing"),
     Progress("progress", "Progress")
 }
@@ -79,6 +79,7 @@ fun Golf70NavHost(vm: MainViewModel) {
                     NavigationBarItem(
                         selected = destination?.hierarchy?.any { it.route == item.route } == true,
                         onClick = { navController.navigate(item.route) },
+                        alwaysShowLabel = false,
                         icon = {
                             Icon(
                                 imageVector = when (item) {

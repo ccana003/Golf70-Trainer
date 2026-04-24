@@ -10,6 +10,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,6 +49,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SwingAnalysisScreen(
     swingViewModel: SwingAnalysisViewModel = viewModel()
@@ -141,7 +144,7 @@ fun SwingAnalysisScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(360.dp)
-                    .background(Color.Black)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 if (state.videoUri != null) {
                     AndroidView(
@@ -229,7 +232,11 @@ fun SwingAnalysisScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Button(onClick = { swingViewModel.setIsPlaying(!state.isPlaying) }) {
                     Text(if (state.isPlaying) "Pause" else "Play")
                 }
@@ -280,7 +287,11 @@ fun SwingAnalysisScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 listOf(1f, 0.5f, 0.25f, 0.1f).forEach { speed ->
                     FilterChip(
                         selected = state.speed == speed,
@@ -292,14 +303,18 @@ fun SwingAnalysisScreen(
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { swingViewModel.toggleDrawMode() }, modifier = Modifier.weight(1f)) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(onClick = { swingViewModel.toggleDrawMode() }) {
                     Text(if (state.isDrawingSwingPath) "Drawing: Swing Path" else "Drawing: Baseline")
                 }
-                Button(onClick = { swingViewModel.toggleGestureMode() }, modifier = Modifier.weight(1f)) {
+                Button(onClick = { swingViewModel.toggleGestureMode() }) {
                     Text(if (state.isScrubGestureEnabled) "Gesture: Scrub" else "Gesture: Draw")
                 }
-                Button(onClick = { swingViewModel.clearOverlays() }, modifier = Modifier.weight(1f)) {
+                Button(onClick = { swingViewModel.clearOverlays() }) {
                     Text("Clear lines")
                 }
             }
