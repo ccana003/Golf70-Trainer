@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -161,6 +162,7 @@ fun SwingAnalysisScreen(
                 }
 
                 var dragStart by remember { mutableStateOf<Offset?>(null) }
+                var dragEnd by remember { mutableStateOf<Offset?>(null) }
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
@@ -168,31 +170,33 @@ fun SwingAnalysisScreen(
                             if (!state.isScrubGestureEnabled || state.videoUri == null) {
                                 detectDragGestures(
                                     onDragStart = { offset ->
-                                        dragStart = offset.clampTo(size.width.toFloat(), size.height.toFloat())
+                                        val clamped = offset.clampTo(size.width.toFloat(), size.height.toFloat())
+                                        dragStart = clamped
+                                        dragEnd = clamped
                                     },
                                     onDragEnd = {
+                                        val start = dragStart
+                                        val end = dragEnd
+                                        if (start != null && end != null && (start - end).getDistance() > 2f) {
+                                            if (state.isDrawingSwingPath) {
+                                                swingViewModel.addSwingSegment(start, end)
+                                            } else {
+                                                swingViewModel.setBaseline(start, end)
+                                            }
+                                        }
                                         dragStart = null
+                                        dragEnd = null
                                     }
                                 ) { change, _ ->
-                                    val start = (dragStart ?: change.position).clampTo(
+                                    dragEnd = change.position.clampTo(
                                         maxWidth = size.width.toFloat(),
                                         maxHeight = size.height.toFloat()
                                     )
-                                    val end = change.position.clampTo(
-                                        maxWidth = size.width.toFloat(),
-                                        maxHeight = size.height.toFloat()
-                                    )
-                                    if (state.isDrawingSwingPath) {
-                                        swingViewModel.addSwingSegment(start, end)
-                                    } else {
-                                        swingViewModel.setBaseline(start, end)
-                                    }
-                                    dragStart = null
                                 }
                             } else {
                                 detectHorizontalDragGestures { _, dragAmount ->
                                     if (state.durationMs <= 0L) return@detectHorizontalDragGestures
-                                    val deltaMs = (dragAmount * 12f).toLong()
+                                    val deltaMs = (dragAmount * 2f).toLong()
                                     val target = (player.currentPosition + deltaMs).coerceIn(0L, state.durationMs)
                                     player.seekTo(target)
                                     swingViewModel.updatePlaybackPosition(target, state.durationMs)
@@ -231,6 +235,8 @@ fun SwingAnalysisScreen(
                 }
                 Button(onClick = { seekBy(player, state, -1000L, swingViewModel) }) { Text("-1s") }
                 Button(onClick = { seekBy(player, state, 1000L, swingViewModel) }) { Text("+1s") }
+                Button(onClick = { seekBy(player, state, -33L, swingViewModel) }) { Text("-1f") }
+                Button(onClick = { seekBy(player, state, 33L, swingViewModel) }) { Text("+1f") }
                 Button(onClick = {
                     player.seekTo(0L)
                     swingViewModel.setIsPlaying(false)
@@ -250,6 +256,27 @@ fun SwingAnalysisScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        item {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                val duration = state.durationMs.coerceAtLeast(1L).toFloat()
+                Slider(
+                    value = state.currentPositionMs.coerceIn(0L, state.durationMs).toFloat(),
+                    onValueChange = { value ->
+                        val target = value.toLong().coerceIn(0L, state.durationMs)
+                        player.seekTo(target)
+                        swingViewModel.updatePlaybackPosition(target, state.durationMs)
+                    },
+                    valueRange = 0f..duration
+                )
+                Text(
+                    text = "${formatMs(state.currentPositionMs)} / ${formatMs(state.durationMs)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
 
         item {
@@ -326,4 +353,11 @@ private fun seekBy(
     val target = (player.currentPosition + deltaMs).coerceIn(0L, duration)
     player.seekTo(target)
     swingViewModel.updatePlaybackPosition(target, duration)
+}
+
+private fun formatMs(ms: Long): String {
+    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
+    val minutes = totalSeconds / 60L
+    val seconds = totalSeconds % 60L
+    return "%d:%02d".format(minutes, seconds)
 }
